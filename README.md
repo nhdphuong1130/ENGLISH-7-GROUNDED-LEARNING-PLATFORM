@@ -234,3 +234,4 @@ hay model cache. Chi tiết cài đặt và giới hạn: [speech runtime](docs/
 - [Hướng dẫn Cài đặt Linux](docs/setup-linux.md)
 - [Hướng dẫn Cài đặt Windows](docs/setup-windows.md)
 - [Hướng dẫn Android Studio](docs/android-studio.md)
+- [Hướng dẫn Cài đặt từ Git và Cấu hình SIM Gateway](docs/HUONG_DAN_CAI_DAT_GIT_SIM_GATEWAY.md)
