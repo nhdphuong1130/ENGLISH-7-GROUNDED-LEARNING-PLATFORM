@@ -8,6 +8,20 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
   @override
   Future<StudentProgress> loadProgress() async =>
       const StudentProgress(0, 0, 0, []);
+
+  AdminProgressOverview adminProgress = const AdminProgressOverview(
+    totalStudents: 0,
+    totalQuizzes: 0,
+    averageAccuracy: 0,
+    students: [],
+  );
+  List<AdminChatItem> adminChats = [];
+
+  @override
+  Future<AdminProgressOverview> loadAdminProgress() async => adminProgress;
+
+  @override
+  Future<List<AdminChatItem>> loadAdminChats() async => adminChats;
   static const defaultProfile = StudentProfile(
     id: 'user-1',
     email: 'student@example.com',
@@ -251,12 +265,64 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
   ]) async => (answers == null || answers.isEmpty)
       ? const QuizResult(0, 10)
       : const QuizResult(8, 10);
+
+  KnowledgeGapAnalysis? fakeGaps;
+  String? lastRemedialConcept;
+
+  @override
+  Future<KnowledgeGapAnalysis> loadKnowledgeGaps() async {
+    return fakeGaps ??
+        const KnowledgeGapAnalysis(
+          totalTestedConcepts: 2,
+          weakConceptsCount: 1,
+          averageMastery: 0.55,
+          gaps: [
+            KnowledgeGapItem(
+              conceptKey: 'grammar-u1',
+              conceptName: 'Present Simple Tense',
+              category: 'grammar',
+              unitNumber: 1,
+              unitTitle: 'Hobbies',
+              masteryScore: 0.40,
+              totalAttempts: 5,
+              incorrectCount: 3,
+              summary: 'Thì hiện tại đơn diễn tả thói quen hoặc sở thích.',
+              textbookCitation: 'SGK Tiếng Anh 7 Unit 1, Trang 11',
+              suggestedPrompt: 'Giải thích chi tiết về thì Hiện tại đơn trong Unit 1',
+            ),
+          ],
+        );
+  }
+
+  @override
+  Future<QuizSession> createRemedialQuiz(String conceptKey) async {
+    lastRemedialConcept = conceptKey;
+    return const QuizSession(
+      'remedial-quiz-1',
+      15,
+      'medium',
+      [
+        QuizQuestion(
+          'remedial-q1',
+          'Practice present simple question',
+          options: ['True', 'False'],
+        ),
+      ],
+    );
+  }
 }
 
 class FakeImageSelector implements ImageSelector {
   @override
   Future<SelectedImage?> select() async => SelectedImage(
     'textbook-page.jpg',
+    Uint8List.fromList([1, 2, 3]),
+    'image/jpeg',
+  );
+
+  @override
+  Future<SelectedImage?> capture() async => SelectedImage(
+    'camera-photo.jpg',
     Uint8List.fromList([1, 2, 3]),
     'image/jpeg',
   );

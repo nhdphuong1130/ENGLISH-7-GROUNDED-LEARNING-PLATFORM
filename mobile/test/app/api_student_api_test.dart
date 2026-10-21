@@ -341,4 +341,74 @@ void main() {
     expect(payload['otp'], '123456');
     expect(tokens.token, 'test-otp-token');
   });
+
+  test('loadKnowledgeGaps parses knowledge gap analysis and items', () async {
+    final transport = ScriptedTransport()
+      ..responses.add(
+        jsonResponse(200, {
+          'total_tested_concepts': 3,
+          'weak_concepts_count': 1,
+          'average_mastery': 0.65,
+          'gaps': [
+            {
+              'concept_key': 'grammar-u1',
+              'concept_name': 'Present Simple Tense',
+              'category': 'grammar',
+              'unit_number': 1,
+              'unit_title': 'Hobbies',
+              'mastery_score': 0.45,
+              'total_attempts': 6,
+              'incorrect_count': 3,
+              'summary': 'Thì hiện tại đơn diễn tả thói quen.',
+              'textbook_citation': 'SGK Tiếng Anh 7 Unit 1, Trang 11',
+              'suggested_prompt': 'Giải thích thì hiện tại đơn',
+            }
+          ],
+        }),
+      );
+
+    final api = buildApi(transport, MemoryTokens());
+    final analysis = await api.loadKnowledgeGaps();
+
+    expect(transport.requests.single.uri.path, '/api/v1/quizzes/knowledge-gap');
+    expect(analysis.totalTestedConcepts, 3);
+    expect(analysis.weakConceptsCount, 1);
+    expect(analysis.averageMastery, 0.65);
+    expect(analysis.gaps.length, 1);
+    expect(analysis.gaps.first.conceptKey, 'grammar-u1');
+    expect(analysis.gaps.first.conceptName, 'Present Simple Tense');
+    expect(analysis.gaps.first.masteryScore, 0.45);
+    expect(analysis.gaps.first.textbookCitation, 'SGK Tiếng Anh 7 Unit 1, Trang 11');
+  });
+
+  test('createRemedialQuiz posts concept_key and returns quiz session', () async {
+    final transport = ScriptedTransport()
+      ..responses.add(
+        jsonResponse(201, {
+          'id': 'remedial-quiz-1',
+          'duration_minutes': 15,
+          'difficulty': 'medium',
+          'question_count': 5,
+          'questions': [
+            {
+              'id': 'q1',
+              'prompt': 'Choose correct form',
+              'options': ['A', 'B'],
+            }
+          ],
+        }),
+      );
+
+    final api = buildApi(transport, MemoryTokens());
+    final session = await api.createRemedialQuiz('grammar-u1');
+
+    expect(transport.requests.single.uri.path, '/api/v1/quizzes/remedial');
+    final payload = jsonDecode(
+      utf8.decode(transport.requests.single.body!),
+    ) as Map<String, dynamic>;
+    expect(payload['concept_key'], 'grammar-u1');
+    expect(session.id, 'remedial-quiz-1');
+    expect(session.questions.length, 1);
+    expect(session.questions.first.prompt, 'Choose correct form');
+  });
 }

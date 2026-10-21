@@ -137,7 +137,8 @@ class SourceReference {
   final String fragmentId;
   final int pdfPage;
   final int? printedPage;
-  const SourceReference(this.fragmentId, this.pdfPage, this.printedPage);
+  final String? imageUrl;
+  const SourceReference(this.fragmentId, this.pdfPage, this.printedPage, [this.imageUrl]);
 }
 
 class TutorImage {
@@ -241,14 +242,177 @@ class StudentProgress {
   );
 }
 
+class KnowledgeGapItem {
+  final String conceptKey;
+  final String conceptName;
+  final String category;
+  final int unitNumber;
+  final String unitTitle;
+  final double masteryScore;
+  final int totalAttempts;
+  final int incorrectCount;
+  final String summary;
+  final String textbookCitation;
+  final String suggestedPrompt;
+
+  const KnowledgeGapItem({
+    required this.conceptKey,
+    required this.conceptName,
+    required this.category,
+    required this.unitNumber,
+    required this.unitTitle,
+    required this.masteryScore,
+    required this.totalAttempts,
+    required this.incorrectCount,
+    required this.summary,
+    required this.textbookCitation,
+    required this.suggestedPrompt,
+  });
+}
+
+class KnowledgeGapAnalysis {
+  final int totalTestedConcepts;
+  final int weakConceptsCount;
+  final double averageMastery;
+  final List<KnowledgeGapItem> gaps;
+
+  const KnowledgeGapAnalysis({
+    required this.totalTestedConcepts,
+    required this.weakConceptsCount,
+    required this.averageMastery,
+    required this.gaps,
+  });
+}
+
 class QuizResult {
   final int correct;
   final int total;
   const QuizResult(this.correct, this.total);
 }
 
+class AdminStudentProgress {
+  final String id;
+  final String email;
+  final String? fullName;
+  final String? schoolName;
+  final String? className;
+  final int completedQuizzes;
+  final int totalQuestions;
+  final int correctAnswers;
+  final int accuracyPercent;
+  final int reviewedCards;
+  final int dueCards;
+  final int difficultCards;
+  final int speakingCount;
+  final List<Map<String, dynamic>> recentQuizzes;
+
+  const AdminStudentProgress({
+    required this.id,
+    required this.email,
+    this.fullName,
+    this.schoolName,
+    this.className,
+    required this.completedQuizzes,
+    required this.totalQuestions,
+    required this.correctAnswers,
+    required this.accuracyPercent,
+    required this.reviewedCards,
+    required this.dueCards,
+    required this.difficultCards,
+    required this.speakingCount,
+    this.recentQuizzes = const [],
+  });
+
+  factory AdminStudentProgress.fromJson(Map<String, dynamic> json) =>
+      AdminStudentProgress(
+        id: json['id'] as String,
+        email: json['email'] as String,
+        fullName: json['full_name'] as String?,
+        schoolName: json['school_name'] as String?,
+        className: json['class_name'] as String?,
+        completedQuizzes: json['completed_quizzes'] as int? ?? 0,
+        totalQuestions: json['total_questions'] as int? ?? 0,
+        correctAnswers: json['correct_answers'] as int? ?? 0,
+        accuracyPercent: json['accuracy_percent'] as int? ?? 0,
+        reviewedCards: json['reviewed_cards'] as int? ?? 0,
+        dueCards: json['due_cards'] as int? ?? 0,
+        difficultCards: json['difficult_cards'] as int? ?? 0,
+        speakingCount: json['speaking_count'] as int? ?? 0,
+        recentQuizzes: (json['recent_quizzes'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+      );
+}
+
+class AdminProgressOverview {
+  final int totalStudents;
+  final int totalQuizzes;
+  final int averageAccuracy;
+  final List<AdminStudentProgress> students;
+
+  const AdminProgressOverview({
+    required this.totalStudents,
+    required this.totalQuizzes,
+    required this.averageAccuracy,
+    required this.students,
+  });
+
+  factory AdminProgressOverview.fromJson(Map<String, dynamic> json) =>
+      AdminProgressOverview(
+        totalStudents: json['total_students'] as int? ?? 0,
+        totalQuizzes: json['total_quizzes'] as int? ?? 0,
+        averageAccuracy: json['average_accuracy'] as int? ?? 0,
+        students: (json['students'] as List? ?? [])
+            .map((e) => AdminStudentProgress.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+      );
+}
+
+class AdminChatItem {
+  final String id;
+  final String userId;
+  final String userEmail;
+  final String? userName;
+  final String question;
+  final String answer;
+  final String language;
+  final String? uploadId;
+  final List<Map<String, dynamic>> citations;
+  final DateTime createdAt;
+
+  const AdminChatItem({
+    required this.id,
+    required this.userId,
+    required this.userEmail,
+    this.userName,
+    required this.question,
+    required this.answer,
+    required this.language,
+    this.uploadId,
+    this.citations = const [],
+    required this.createdAt,
+  });
+
+  factory AdminChatItem.fromJson(Map<String, dynamic> json) => AdminChatItem(
+        id: json['id'] as String,
+        userId: json['user_id'] as String,
+        userEmail: json['user_email'] as String,
+        userName: json['user_name'] as String?,
+        question: json['question'] as String,
+        answer: json['answer'] as String,
+        language: json['language'] as String,
+        uploadId: json['upload_id'] as String?,
+        citations: (json['citations'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        createdAt: DateTime.parse(json['created_at'] as String),
+      );
+}
+
 abstract interface class StudentApi implements LearningApi {
   Future<StudentProgress> loadProgress();
+  Future<AdminProgressOverview> loadAdminProgress();
+  Future<List<AdminChatItem>> loadAdminChats();
   Future<void> login(String email, String password);
   Future<void> sendOtp(
     String phone, {
@@ -284,4 +448,6 @@ abstract interface class StudentApi implements LearningApi {
   Future<TutorResult> askTutor(TutorQuery query);
   Future<QuizSession> createQuiz(QuizSetup setup);
   Future<QuizResult> submitQuiz(String quizId, [Map<String, String>? answers]);
+  Future<KnowledgeGapAnalysis> loadKnowledgeGaps();
+  Future<QuizSession> createRemedialQuiz(String conceptKey);
 }

@@ -30,6 +30,21 @@ class ApiStudentApi with ApiLearning implements StudentApi {
     );
   }
 
+  @override
+  Future<AdminProgressOverview> loadAdminProgress() async {
+    final response = await _client.getJson('/api/v1/admin/students/progress');
+    return AdminProgressOverview.fromJson(response.body);
+  }
+
+  @override
+  Future<List<AdminChatItem>> loadAdminChats() async {
+    final response = await _client.getJson('/api/v1/admin/chats');
+    final items = response.body['items'] as List? ?? [];
+    return items
+        .map((e) => AdminChatItem.fromJson(Map<String, dynamic>.from(e as Map)))
+        .toList();
+  }
+
   final ApiClient _client;
   final TokenStore _tokens;
 
@@ -400,6 +415,7 @@ class ApiStudentApi with ApiLearning implements StudentApi {
                 item['fragment_id'] as String,
                 item['pdf_page'] as int,
                 item['printed_page'] as int?,
+                item['image_url'] as String?,
               );
             })
             .toList(growable: false),
@@ -453,6 +469,65 @@ class ApiStudentApi with ApiLearning implements StudentApi {
     return QuizResult(
       response.body['correct'] as int,
       response.body['total'] as int,
+    );
+  }
+
+  @override
+  Future<KnowledgeGapAnalysis> loadKnowledgeGaps() async {
+    final response = await _client.getJson('/api/v1/quizzes/knowledge-gap');
+    final body = response.body;
+    final gapsList = (body['gaps'] as List<dynamic>? ?? const []).map((raw) {
+      final item = raw as Map<String, dynamic>;
+      return KnowledgeGapItem(
+        conceptKey: item['concept_key'] as String,
+        conceptName: item['concept_name'] as String,
+        category: item['category'] as String,
+        unitNumber: item['unit_number'] as int,
+        unitTitle: item['unit_title'] as String,
+        masteryScore: (item['mastery_score'] as num).toDouble(),
+        totalAttempts: item['total_attempts'] as int,
+        incorrectCount: item['incorrect_count'] as int,
+        summary: item['summary'] as String,
+        textbookCitation: item['textbook_citation'] as String,
+        suggestedPrompt: item['suggested_prompt'] as String,
+      );
+    }).toList(growable: false);
+
+    return KnowledgeGapAnalysis(
+      totalTestedConcepts: body['total_tested_concepts'] as int,
+      weakConceptsCount: body['weak_concepts_count'] as int,
+      averageMastery: (body['average_mastery'] as num).toDouble(),
+      gaps: gapsList,
+    );
+  }
+
+  @override
+  Future<QuizSession> createRemedialQuiz(String conceptKey) async {
+    final response = await _client.postJson('/api/v1/quizzes/remedial', {
+      'concept_key': conceptKey,
+    });
+    final questionsList =
+        (response.body['questions'] as List<dynamic>? ?? const [])
+            .map((raw) {
+              final item = raw as Map<String, dynamic>;
+              final rawOptions = item['options'] as List<dynamic>?;
+              final options = rawOptions != null
+                  ? rawOptions.map((e) => e.toString()).toList(growable: false)
+                  : const ['True', 'False', 'Not given'];
+              return QuizQuestion(
+                item['id'] as String,
+                item['prompt'] as String,
+                options: options,
+              );
+            })
+            .toList(growable: false);
+    return QuizSession(
+      response.body['id'] as String,
+      response.body['duration_minutes'] as int,
+      response.body['difficulty'] as String,
+      questionsList,
+      audioUrl: response.body['audio_url'] as String?,
+      audioTitle: response.body['audio_title'] as String?,
     );
   }
 }

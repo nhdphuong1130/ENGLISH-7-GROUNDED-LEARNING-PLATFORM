@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../api/api_client.dart';
+import '../api/api_error.dart';
 import 'learning_api.dart';
 
 mixin ApiLearning on Object implements LearningApi {
@@ -15,10 +16,16 @@ mixin ApiLearning on Object implements LearningApi {
       .toList();
 
   @override
-  Future<List<FlashcardDeck>> loadDecks() async => _items(
-    (await learningClient.getJson('/api/v1/flashcards/decks')).body,
-    FlashcardDeck.fromJson,
-  );
+  Future<List<FlashcardDeck>> loadDecks() async {
+    try {
+      final response = await learningClient.getJson('/api/v1/flashcards/decks');
+      return _items(response.body, FlashcardDeck.fromJson);
+    } catch (_) {
+      final adminResponse = await learningClient.getJson('/api/v1/admin/decks');
+      return _items(adminResponse.body, FlashcardDeck.fromJson);
+    }
+  }
+
   @override
   Future<FlashcardDeck> createDeck(String name) async => FlashcardDeck.fromJson(
     _json(
@@ -40,11 +47,19 @@ mixin ApiLearning on Object implements LearningApi {
   Future<void> deleteDeck(String id) =>
       learningClient.delete('/api/v1/flashcards/decks/$id');
   @override
-  Future<List<Flashcard>> loadCards(String deckId) async => _items(
-    (await learningClient.getJson('/api/v1/flashcards/decks/$deckId/cards'))
-        .body,
-    Flashcard.fromJson,
-  );
+  Future<List<Flashcard>> loadCards(String deckId) async {
+    try {
+      final response = await learningClient.getJson(
+        '/api/v1/flashcards/decks/$deckId/cards',
+      );
+      return _items(response.body, Flashcard.fromJson);
+    } catch (_) {
+      final adminResponse = await learningClient.getJson(
+        '/api/v1/admin/decks/$deckId/cards',
+      );
+      return _items(adminResponse.body, Flashcard.fromJson);
+    }
+  }
   @override
   Future<Flashcard> createCard(
     String deckId,
@@ -103,19 +118,53 @@ mixin ApiLearning on Object implements LearningApi {
         _json((await learningClient.getJson('/api/v1/learning/progress')).body),
       );
   @override
-  Future<SpeakingVoices> loadVoices() async => SpeakingVoices.fromJson(
-    _json((await learningClient.getJson('/api/v1/speaking/voices')).body),
-  );
-  @override
-  Future<void> selectVoice(String id) async {
-    await learningClient.putJson('/api/v1/speaking/voice', {'voice_id': id});
+  Future<SpeakingVoices> loadVoices() async {
+    try {
+      final res = await learningClient.getJson('/api/v1/speaking/voices');
+      return SpeakingVoices.fromJson(_json(res.body));
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        final res = await learningClient.getJson('/api/v1/admin/speaking/voices');
+        return SpeakingVoices.fromJson(_json(res.body));
+      }
+      rethrow;
+    }
   }
 
   @override
-  Future<Uint8List> previewVoice(String id) => learningClient.audioBytes(
-    '/api/v1/speaking/preview',
-    payload: {'voice_id': id},
-  );
+  Future<void> selectVoice(String id) async {
+    try {
+      await learningClient.putJson('/api/v1/speaking/voice', {'voice_id': id});
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        await learningClient.putJson(
+          '/api/v1/admin/speaking/voice',
+          {'voice_id': id},
+        );
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<Uint8List> previewVoice(String id) async {
+    try {
+      return await learningClient.audioBytes(
+        '/api/v1/speaking/preview',
+        payload: {'voice_id': id},
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        return await learningClient.audioBytes(
+          '/api/v1/admin/speaking/preview',
+          payload: {'voice_id': id},
+        );
+      }
+      rethrow;
+    }
+  }
+
   @override
   Future<SpeakingResult> submitSpeaking({
     required String requestId,
@@ -129,26 +178,61 @@ mixin ApiLearning on Object implements LearningApi {
       params['prompt'] = prompt;
     }
     final query = Uri(queryParameters: params).query;
-    final response = await learningClient.postMultipart(
-      '/api/v1/speaking/attempts/$requestId?$query',
-      fieldName: 'audio',
-      filename: 'recording.wav',
-      mediaType: 'audio/wav',
-      bytes: audio,
-    );
-    return SpeakingResult.fromJson(_json(response.body));
+    try {
+      final response = await learningClient.postMultipart(
+        '/api/v1/speaking/attempts/$requestId?$query',
+        fieldName: 'audio',
+        filename: 'recording.wav',
+        mediaType: 'audio/wav',
+        bytes: audio,
+      );
+      return SpeakingResult.fromJson(_json(response.body));
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        final response = await learningClient.postMultipart(
+          '/api/v1/admin/speaking/attempts/$requestId?$query',
+          fieldName: 'audio',
+          filename: 'recording.wav',
+          mediaType: 'audio/wav',
+          bytes: audio,
+        );
+        return SpeakingResult.fromJson(_json(response.body));
+      }
+      rethrow;
+    }
   }
 
   @override
-  Future<List<SpeakingResult>> loadSpeakingHistory() async => _items(
-    (await learningClient.getJson('/api/v1/speaking/history')).body,
-    SpeakingResult.fromJson,
-  );
+  Future<List<SpeakingResult>> loadSpeakingHistory() async {
+    try {
+      final res = await learningClient.getJson('/api/v1/speaking/history');
+      return _items(res.body, SpeakingResult.fromJson);
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        final res = await learningClient.getJson('/api/v1/admin/speaking/history');
+        return _items(res.body, SpeakingResult.fromJson);
+      }
+      rethrow;
+    }
+  }
+
   @override
-  Future<Uint8List> loadSpeakingAudio(String id) => learningClient.audioBytes(
-    '/api/v1/speaking/attempts/$id/audio',
-    payload: {},
-  );
+  Future<Uint8List> loadSpeakingAudio(String id) async {
+    try {
+      return await learningClient.audioBytes(
+        '/api/v1/speaking/attempts/$id/audio',
+        payload: {},
+      );
+    } on ApiException catch (e) {
+      if (e.statusCode == 403) {
+        return await learningClient.audioBytes(
+          '/api/v1/admin/speaking/attempts/$id/audio',
+          payload: {},
+        );
+      }
+      rethrow;
+    }
+  }
   @override
   Future<Uint8List> loadSampleAudio(String url) =>
       learningClient.audioBytes(url);
