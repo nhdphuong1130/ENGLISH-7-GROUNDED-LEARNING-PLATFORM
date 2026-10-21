@@ -155,7 +155,13 @@ class _StudentShellState extends State<StudentShell> {
       LessonScreen(api: widget.api),
       TutorScreen(api: widget.api, imageSelector: widget.imageSelector),
       QuizScreen(api: widget.api),
-      ProgressScreen(api: widget.api, active: _index == 3),
+      ProgressScreen(
+        api: widget.api,
+        active: _index == 3,
+        onNavigateTab: (targetIndex, {initialPrompt}) {
+          setState(() => _index = targetIndex);
+        },
+      ),
       ProfileScreen(api: widget.api, onLogout: widget.onLogout),
       LearningScreen(api: widget.api),
     ];

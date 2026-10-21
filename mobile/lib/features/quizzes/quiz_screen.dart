@@ -8,7 +8,8 @@ import '../../widgets/audio_player.dart';
 
 class QuizScreen extends StatefulWidget {
   final StudentApi api;
-  const QuizScreen({super.key, required this.api});
+  final QuizSession? initialSession;
+  const QuizScreen({super.key, required this.api, this.initialSession});
 
   @override
   State<QuizScreen> createState() => _QuizScreenState();
@@ -34,7 +35,22 @@ class _QuizScreenState extends State<QuizScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchOptions();
+    if (widget.initialSession != null) {
+      final s = widget.initialSession!;
+      _session = s;
+      _remainingSeconds = s.durationMinutes * 60;
+      _isLoadingOptions = false;
+      _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+        if (!mounted || _remainingSeconds <= 1) {
+          timer.cancel();
+          if (mounted) setState(() => _remainingSeconds = 0);
+        } else {
+          setState(() => _remainingSeconds--);
+        }
+      });
+    } else {
+      _fetchOptions();
+    }
   }
 
   void _fetchOptions() {
