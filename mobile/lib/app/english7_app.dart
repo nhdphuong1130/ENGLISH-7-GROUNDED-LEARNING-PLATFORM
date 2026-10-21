@@ -148,18 +148,28 @@ class StudentShell extends StatefulWidget {
 
 class _StudentShellState extends State<StudentShell> {
   int _index = 0;
+  String? _tutorInitialPrompt;
 
   @override
   Widget build(BuildContext context) {
     final pages = [
       LessonScreen(api: widget.api),
-      TutorScreen(api: widget.api, imageSelector: widget.imageSelector),
+      TutorScreen(
+        api: widget.api,
+        imageSelector: widget.imageSelector,
+        initialPrompt: _tutorInitialPrompt,
+      ),
       QuizScreen(api: widget.api),
       ProgressScreen(
         api: widget.api,
         active: _index == 3,
         onNavigateTab: (targetIndex, {initialPrompt}) {
-          setState(() => _index = targetIndex);
+          setState(() {
+            _index = targetIndex;
+            if (initialPrompt != null) {
+              _tutorInitialPrompt = initialPrompt;
+            }
+          });
         },
       ),
       ProfileScreen(api: widget.api, onLogout: widget.onLogout),
