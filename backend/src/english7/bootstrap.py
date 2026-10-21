@@ -527,4 +527,11 @@ def configure_runtime(
         repository=quiz_repo,
         max_audio_plays=settings.quiz_max_audio_plays or 2,
     )
+    from english7.modules.knowledge.gap_service import KnowledgeGapService
+
+    app.state.knowledge_gap_service = KnowledgeGapService(
+        sessions,
+        neo4j_driver=neo4j_driver,
+        neo4j_database=getattr(settings, "neo4j_database", None),
+    )
     return RuntimeResources(neo4j_driver)

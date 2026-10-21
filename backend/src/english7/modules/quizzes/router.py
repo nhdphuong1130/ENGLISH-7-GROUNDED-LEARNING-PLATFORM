@@ -13,6 +13,7 @@ from english7.modules.auth.router import get_current_user
 from english7.modules.quizzes.service import QuizService
 from english7.modules.attempts.progress import ProgressService, AttemptResult
 from english7.modules.attempts.progress_repository import SQLAlchemyProgressRepository
+from english7.modules.knowledge.gap_service import KnowledgeGapService
 
 router = APIRouter(prefix="/quizzes", tags=["quizzes"])
 
@@ -67,6 +68,67 @@ def student_progress(
     service: Annotated[ProgressService, Depends(get_progress_service)],
 ) -> dict:
     return service.progress(user.id)
+
+
+class KnowledgeGapItemResponse(BaseModel):
+    concept_key: str
+    concept_name: str
+    category: str
+    unit_number: int
+    unit_title: str
+    mastery_score: float
+    total_attempts: int
+    incorrect_count: int
+    summary: str
+    textbook_citation: str
+    suggested_prompt: str
+
+
+class KnowledgeGapResponse(BaseModel):
+    total_tested_concepts: int
+    weak_concepts_count: int
+    average_mastery: float
+    gaps: list[KnowledgeGapItemResponse]
+
+
+class RemedialQuizRequest(BaseModel):
+    concept_key: str = Field(min_length=1, max_length=100)
+
+
+def get_knowledge_gap_service(request: Request) -> KnowledgeGapService:
+    service = getattr(request.app.state, "knowledge_gap_service", None)
+    if service is None:
+        service = KnowledgeGapService(get_session_factory())
+    return service
+
+
+@router.get("/knowledge-gap", response_model=KnowledgeGapResponse)
+def get_knowledge_gap(
+    user: Annotated[AuthUser, Depends(require_student)],
+    service: Annotated[KnowledgeGapService, Depends(get_knowledge_gap_service)],
+) -> KnowledgeGapResponse:
+    analysis = service.diagnose_gaps(user.id)
+    return KnowledgeGapResponse(
+        total_tested_concepts=analysis.total_tested_concepts,
+        weak_concepts_count=analysis.weak_concepts_count,
+        average_mastery=round(analysis.average_mastery, 2),
+        gaps=[
+            KnowledgeGapItemResponse(
+                concept_key=g.concept_key,
+                concept_name=g.concept_name,
+                category=g.category,
+                unit_number=g.unit_number,
+                unit_title=g.unit_title,
+                mastery_score=round(g.mastery_score, 2),
+                total_attempts=g.total_attempts,
+                incorrect_count=g.incorrect_count,
+                summary=g.summary,
+                textbook_citation=g.textbook_citation,
+                suggested_prompt=g.suggested_prompt,
+            )
+            for g in analysis.gaps
+        ],
+    )
 
 
 class QuizOptionsResponse(BaseModel):
@@ -143,6 +205,48 @@ def generate_quiz(
         duration_minutes=draft.duration_minutes,
         difficulty=draft.difficulty,
         question_count=draft.question_count,
+        audio_url=audio_url,
+        audio_title=audio_title,
+        questions=questions,
+    )
+
+
+@router.post("/remedial", response_model=QuizResponse, status_code=status.HTTP_201_CREATED)
+def generate_remedial_quiz(
+    payload: RemedialQuizRequest,
+    user: Annotated[AuthUser, Depends(require_student)],
+    service: Annotated[QuizService, Depends(get_quiz_service)],
+) -> QuizResponse:
+    draft = service.generate(
+        user.id, duration_minutes=15, difficulty="medium", mode="reading"
+    )
+    questions: list[QuizQuestionItem] = []
+    audio_url = draft.audio_url
+    audio_title = draft.audio_title
+    try:
+        with get_session_factory()() as session:
+            db_questions = session.scalars(
+                select(QuizQuestion).where(QuizQuestion.quiz_id == draft.id)
+            ).all()
+            questions = [
+                QuizQuestionItem(
+                    id=q.id,
+                    prompt=q.prompt,
+                    options=list(
+                        (q.answer_payload or {}).get(
+                            "options", ["True", "False", "Not given"]
+                        )
+                    ),
+                )
+                for q in db_questions
+            ]
+    except Exception:
+        pass
+    return QuizResponse(
+        id=draft.id,
+        duration_minutes=draft.duration_minutes,
+        difficulty=draft.difficulty,
+        question_count=len(questions) or draft.question_count,
         audio_url=audio_url,
         audio_title=audio_title,
         questions=questions,
