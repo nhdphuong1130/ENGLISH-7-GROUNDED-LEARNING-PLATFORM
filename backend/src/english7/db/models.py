@@ -10,8 +10,10 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     Date,
+    DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
@@ -515,6 +517,67 @@ class AuditEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(nullable=False)
     event_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class TutorConversation(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "tutor_conversations"
+    __table_args__ = (
+        Index(
+            "ix_tutor_conversations_owner_updated",
+            "user_id",
+            "updated_at",
+        ),
+    )
+
+    user_id: Mapped[UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    title: Mapped[str] = mapped_column(Unicode(160), nullable=False)
+    language: Mapped[str] = mapped_column(String(10), nullable=False)
+    addressing_preference: Mapped[str | None] = mapped_column(Unicode(120))
+    expires_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+
+    user: Mapped[User] = relationship()
+    exchanges: Mapped[list[TutorChat]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="TutorChat.sequence_number",
+    )
+
+
+class TutorChat(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "tutor_chats"
+    __table_args__ = (
+        UniqueConstraint(
+            "conversation_id",
+            "sequence_number",
+            name="uq_tutor_chats_conversation_sequence",
+        ),
+        Index(
+            "ix_tutor_chats_conversation_sequence",
+            "conversation_id",
+            "sequence_number",
+        ),
+    )
+
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True, nullable=False)
+    conversation_id: Mapped[UUID] = mapped_column(
+        ForeignKey("tutor_conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    sequence_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    question: Mapped[str] = mapped_column(UnicodeText, nullable=False)
+    answer: Mapped[str] = mapped_column(UnicodeText, nullable=False)
+    language: Mapped[str] = mapped_column(String(10), nullable=False)
+    upload_id: Mapped[UUID | None] = mapped_column(ForeignKey("student_image_uploads.id"), nullable=True)
+    citations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list, nullable=False)
+
+    user: Mapped[User] = relationship()
+    conversation: Mapped[TutorConversation] = relationship(
+        back_populates="exchanges"
+    )
 
 
 # Register feature-owned models in the shared metadata for migrations/tests.

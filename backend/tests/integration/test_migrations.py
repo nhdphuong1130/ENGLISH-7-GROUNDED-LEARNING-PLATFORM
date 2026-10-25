@@ -23,6 +23,8 @@ def test_initial_migration_creates_expected_tables() -> None:
         "concept_relation_assertions",
         "unit_concept_assertions",
         "graph_builds",
+        "tutor_conversations",
+        "tutor_chats",
     } <= table_names
 
     user_columns = {
@@ -35,3 +37,9 @@ def test_initial_migration_creates_expected_tables() -> None:
         "school_name",
         "class_name",
     } <= user_columns
+
+    chat_columns = {
+        column["name"]
+        for column in inspect(get_engine()).get_columns("tutor_chats")
+    }
+    assert {"conversation_id", "sequence_number"} <= chat_columns
