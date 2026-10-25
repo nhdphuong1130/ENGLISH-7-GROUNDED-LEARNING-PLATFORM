@@ -6,8 +6,10 @@ from pydantic import SecretStr
 
 from english7.modules.ai.contracts import (
     AIRequest,
+    ConversationTurn,
     Evidence,
     Language,
+    ScopeStatus,
 )
 from english7.modules.ai.openrouter import (
     AIProviderError,
@@ -47,7 +49,8 @@ def test_provider_uses_configured_model_timeout_and_structured_output() -> None:
                     "message": {
                         "content": (
                             '{"answer":"Exercise every day.",'
-                            '"language":"en","citations":["'
+                            '"language":"en","scope_status":"grounded",'
+                            '"citations":["'
                             + str(req.evidence[0].fragment_id)
                             + '"]}'
                         )
@@ -73,6 +76,100 @@ def test_provider_uses_configured_model_timeout_and_structured_output() -> None:
     assert payload["response_format"] == {"type": "json_object"}
     assert timeout == 17.5
     assert result.citations == (req.evidence[0].fragment_id,)
+    assert result.scope_status is ScopeStatus.GROUNDED
+
+
+def test_tutor_prompt_separates_history_from_verified_evidence() -> None:
+    req = request()
+    conversational = AIRequest(
+        question="Can you explain that again?",
+        language=req.language,
+        evidence=req.evidence,
+        history=(
+            ConversationTurn(
+                learner="What is a healthy habit?",
+                tutor="Exercise every day.",
+            ),
+        ),
+        addressing_preference="Speak as a friendly classmate.",
+    )
+
+    messages = OpenRouterProvider._messages(conversational)
+
+    system = messages[0]["content"].lower()
+    user = __import__("json").loads(messages[1]["content"])
+    assert "warm" in system
+    assert "step-by-step" in system
+    assert "never evidence" in system
+    assert "outside" in system
+    assert "reveal" in system
+    assert user["current_question"] == "Can you explain that again?"
+    assert user["conversation_history"][0]["learner"] == (
+        "What is a healthy habit?"
+    )
+    assert user["verified_textbook_evidence"][0]["fragment_id"] == str(
+        req.evidence[0].fragment_id
+    )
+    assert user["addressing_preference"] == "Speak as a friendly classmate."
+
+
+def test_provider_parses_out_of_scope_response() -> None:
+    http = FakeHTTP(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"answer":"","language":"vi",'
+                            '"scope_status":"out_of_scope","citations":[]}'
+                        )
+                    }
+                }
+            ]
+        }
+    )
+    provider = OpenRouterProvider(
+        http=http,
+        api_key=SecretStr("secret"),
+        endpoint="https://openrouter.example/api/v1/chat/completions",
+        model="configured/model",
+        timeout_seconds=10,
+    )
+    req = request()
+
+    result = provider.generate(
+        AIRequest(req.question, Language.VIETNAMESE, req.evidence)
+    )
+
+    assert result.scope_status is ScopeStatus.OUT_OF_SCOPE
+    assert result.citations == ()
+
+
+def test_provider_rejects_unknown_scope_status() -> None:
+    http = FakeHTTP(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"answer":"Guessing", "language":"en",'
+                            '"scope_status":"anything", "citations":[]}'
+                        )
+                    }
+                }
+            ]
+        }
+    )
+    provider = OpenRouterProvider(
+        http=http,
+        api_key=SecretStr("secret"),
+        endpoint="https://openrouter.example/api/v1/chat/completions",
+        model="configured/model",
+        timeout_seconds=10,
+    )
+
+    with pytest.raises(AIProviderError):
+        provider.generate(request())
 
 
 def test_provider_never_exposes_api_key_in_errors_or_logs(caplog) -> None:

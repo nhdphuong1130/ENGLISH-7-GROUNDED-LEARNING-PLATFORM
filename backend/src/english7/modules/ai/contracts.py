@@ -9,6 +9,17 @@ class Language(StrEnum):
     ENGLISH = "en"
 
 
+class ScopeStatus(StrEnum):
+    GROUNDED = "grounded"
+    OUT_OF_SCOPE = "out_of_scope"
+
+
+@dataclass(frozen=True, slots=True)
+class ConversationTurn:
+    learner: str
+    tutor: str
+
+
 @dataclass(frozen=True, slots=True)
 class Evidence:
     fragment_id: UUID
@@ -22,6 +33,8 @@ class AIRequest:
     question: str
     language: Language
     evidence: tuple[Evidence, ...]
+    history: tuple[ConversationTurn, ...] = ()
+    addressing_preference: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,6 +42,7 @@ class AIResponse:
     answer: str
     language: Language
     citations: tuple[UUID, ...]
+    scope_status: ScopeStatus = ScopeStatus.GROUNDED
 
 
 class AIProvider(Protocol):
