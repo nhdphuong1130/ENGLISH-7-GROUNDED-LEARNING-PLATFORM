@@ -70,6 +70,10 @@ class ConversationDetailResponse(ConversationSummaryResponse):
     exchanges: tuple[ExchangeResponse, ...]
 
 
+class ConversationListResponse(BaseModel):
+    items: tuple[ConversationSummaryResponse, ...]
+
+
 def get_tutor_service(request: Request) -> TutorService:
     service = getattr(request.app.state, "tutor_service", None)
     if service is None:
@@ -146,12 +150,14 @@ def create_conversation(
     )
 
 
-@router.get("/conversations", response_model=tuple[ConversationSummaryResponse, ...])
+@router.get("/conversations", response_model=ConversationListResponse)
 def list_conversations(
     user: Annotated[AuthUser, Depends(get_current_user)],
     service: Annotated[TutorService, Depends(get_tutor_service)],
-) -> tuple[ConversationSummaryResponse, ...]:
-    return tuple(_summary(item) for item in service.list_conversations(user.id))
+) -> ConversationListResponse:
+    return ConversationListResponse(
+        items=tuple(_summary(item) for item in service.list_conversations(user.id))
+    )
 
 
 @router.get(

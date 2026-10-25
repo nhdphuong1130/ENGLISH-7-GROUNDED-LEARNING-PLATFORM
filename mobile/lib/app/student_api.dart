@@ -138,7 +138,14 @@ class SourceReference {
   final int pdfPage;
   final int? printedPage;
   final String? imageUrl;
-  const SourceReference(this.fragmentId, this.pdfPage, this.printedPage, [this.imageUrl]);
+  final int? unitNumber;
+  const SourceReference(
+    this.fragmentId,
+    this.pdfPage,
+    this.printedPage, [
+    this.imageUrl,
+    this.unitNumber,
+  ]);
 }
 
 class TutorImage {
@@ -152,18 +159,96 @@ class TutorQuery {
   final String question;
   final TutorLanguage language;
   final TutorImage? image;
-  const TutorQuery(this.question, this.language, this.image);
+  final String? addressingPreference;
+  const TutorQuery(
+    this.question,
+    this.language,
+    this.image, {
+    this.addressingPreference,
+  });
 }
 
 class TutorResult {
   final String answer;
   final List<SourceReference> citations;
-  const TutorResult(this.answer, this.citations);
+  final String? conversationId;
+  final String scopeStatus;
+  const TutorResult(
+    this.answer,
+    this.citations, {
+    this.conversationId,
+    this.scopeStatus = 'grounded',
+  });
+}
+
+class TutorConversationSummary {
+  final String id;
+  final String title;
+  final TutorLanguage language;
+  final String? addressingPreference;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final DateTime expiresAt;
+
+  const TutorConversationSummary({
+    required this.id,
+    required this.title,
+    required this.language,
+    required this.addressingPreference,
+    required this.createdAt,
+    required this.updatedAt,
+    required this.expiresAt,
+  });
+}
+
+class TutorExchange {
+  final String id;
+  final int sequenceNumber;
+  final String question;
+  final String answer;
+  final TutorLanguage language;
+  final String? uploadId;
+  final List<SourceReference> citations;
+  final DateTime createdAt;
+
+  const TutorExchange({
+    required this.id,
+    required this.sequenceNumber,
+    required this.question,
+    required this.answer,
+    required this.language,
+    required this.uploadId,
+    required this.citations,
+    required this.createdAt,
+  });
+}
+
+class TutorConversation extends TutorConversationSummary {
+  final List<TutorExchange> exchanges;
+
+  const TutorConversation({
+    required super.id,
+    required super.title,
+    required super.language,
+    required super.addressingPreference,
+    required super.createdAt,
+    required super.updatedAt,
+    required super.expiresAt,
+    required this.exchanges,
+  });
 }
 
 class TutorRefusal implements Exception {
   final String code;
   const TutorRefusal(this.code);
+}
+
+class TutorConversationFull implements Exception {
+  const TutorConversationFull();
+}
+
+class TutorConversationUnavailable implements Exception {
+  const TutorConversationUnavailable();
 }
 
 class QuizSetup {
@@ -446,6 +531,18 @@ abstract interface class StudentApi implements LearningApi {
   Future<LessonDetail> loadLessonDetail(String unitId);
   Future<QuizOptions> loadQuizOptions();
   Future<TutorResult> askTutor(TutorQuery query);
+  Future<TutorConversationSummary> createTutorConversation({
+    required String title,
+    required TutorLanguage language,
+    String? addressingPreference,
+  });
+  Future<List<TutorConversationSummary>> loadTutorConversations();
+  Future<TutorConversation> loadTutorConversation(String conversationId);
+  Future<void> deleteTutorConversation(String conversationId);
+  Future<TutorResult> askTutorInConversation(
+    String conversationId,
+    TutorQuery query,
+  );
   Future<QuizSession> createQuiz(QuizSetup setup);
   Future<QuizResult> submitQuiz(String quizId, [Map<String, String>? answers]);
   Future<KnowledgeGapAnalysis> loadKnowledgeGaps();

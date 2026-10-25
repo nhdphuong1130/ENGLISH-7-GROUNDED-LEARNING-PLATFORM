@@ -360,7 +360,85 @@ class ApiStudentApi with ApiLearning implements StudentApi {
   }
 
   @override
-  Future<TutorResult> askTutor(TutorQuery query) async {
+  Future<TutorConversationSummary> createTutorConversation({
+    required String title,
+    required TutorLanguage language,
+    String? addressingPreference,
+  }) async {
+    final response = await _client.postJson('/api/v1/tutor/conversations', {
+      'title': title,
+      'language': _tutorLanguageValue(language),
+      'addressing_preference': addressingPreference,
+    });
+    return _conversationSummary(response.body);
+  }
+
+  @override
+  Future<List<TutorConversationSummary>> loadTutorConversations() async {
+    final response = await _client.getJson('/api/v1/tutor/conversations');
+    final items = response.body['items'] as List<dynamic>? ?? const [];
+    return items
+        .map(
+          (item) =>
+              _conversationSummary(Map<String, Object?>.from(item as Map)),
+        )
+        .toList(growable: false);
+  }
+
+  @override
+  Future<TutorConversation> loadTutorConversation(String conversationId) async {
+    try {
+      final response = await _client.getJson(
+        '/api/v1/tutor/conversations/$conversationId',
+      );
+      final summary = _conversationSummary(response.body);
+      final exchanges =
+          response.body['exchanges'] as List<dynamic>? ?? const [];
+      return TutorConversation(
+        id: summary.id,
+        title: summary.title,
+        language: summary.language,
+        addressingPreference: summary.addressingPreference,
+        createdAt: summary.createdAt,
+        updatedAt: summary.updatedAt,
+        expiresAt: summary.expiresAt,
+        exchanges: exchanges
+            .map((item) => _exchange(Map<String, Object?>.from(item as Map)))
+            .toList(growable: false),
+      );
+    } on ApiException catch (error) {
+      if (error.code == 'conversation_not_found' || error.statusCode == 410) {
+        throw const TutorConversationUnavailable();
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteTutorConversation(String conversationId) async {
+    try {
+      await _client.delete('/api/v1/tutor/conversations/$conversationId');
+    } on ApiException catch (error) {
+      if (error.code == 'conversation_not_found' || error.statusCode == 410) {
+        throw const TutorConversationUnavailable();
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<TutorResult> askTutor(TutorQuery query) => _askTutor(query);
+
+  @override
+  Future<TutorResult> askTutorInConversation(
+    String conversationId,
+    TutorQuery query,
+  ) => _askTutor(query, conversationId: conversationId);
+
+  Future<TutorResult> _askTutor(
+    TutorQuery query, {
+    String? conversationId,
+  }) async {
     try {
       String? uploadId;
       if (query.image != null) {
@@ -399,32 +477,75 @@ class ApiStudentApi with ApiLearning implements StudentApi {
           }
         }
       }
-      final response = await _client.postJson('/api/v1/tutor/ask', {
+      final path = conversationId == null
+          ? '/api/v1/tutor/ask'
+          : '/api/v1/tutor/conversations/$conversationId/ask';
+      final response = await _client.postJson(path, {
         'question': query.question,
-        'language': query.language == TutorLanguage.vietnamese ? 'vi' : 'en',
+        'language': _tutorLanguageValue(query.language),
         'upload_id': ?uploadId,
+        'addressing_preference': query.addressingPreference,
       });
-      final citations =
-          response.body['citations'] as List<dynamic>? ?? const [];
       return TutorResult(
         response.body['answer'] as String,
-        citations
-            .map((raw) {
-              final item = raw as Map<String, dynamic>;
-              return SourceReference(
-                item['fragment_id'] as String,
-                item['pdf_page'] as int,
-                item['printed_page'] as int?,
-                item['image_url'] as String?,
-              );
-            })
-            .toList(growable: false),
+        _citations(response.body['citations']),
+        conversationId: response.body['conversation_id'] as String?,
+        scopeStatus: response.body['scope_status'] as String? ?? 'grounded',
       );
     } on ApiException catch (error) {
       if (error.code == 'out_of_scope') throw TutorRefusal(error.code);
+      if (error.code == 'conversation_full') {
+        throw const TutorConversationFull();
+      }
+      if (error.code == 'conversation_not_found' || error.statusCode == 410) {
+        throw const TutorConversationUnavailable();
+      }
       rethrow;
     }
   }
+
+  static TutorConversationSummary _conversationSummary(
+    Map<String, Object?> body,
+  ) => TutorConversationSummary(
+    id: body['id'] as String,
+    title: body['title'] as String,
+    language: _tutorLanguage(body['language'] as String),
+    addressingPreference: body['addressing_preference'] as String?,
+    createdAt: DateTime.parse(body['created_at'] as String),
+    updatedAt: DateTime.parse(body['updated_at'] as String),
+    expiresAt: DateTime.parse(body['expires_at'] as String),
+  );
+
+  static TutorExchange _exchange(Map<String, Object?> body) => TutorExchange(
+    id: body['id'] as String,
+    sequenceNumber: body['sequence_number'] as int,
+    question: body['question'] as String,
+    answer: body['answer'] as String,
+    language: _tutorLanguage(body['language'] as String),
+    uploadId: body['upload_id'] as String?,
+    citations: _citations(body['citations']),
+    createdAt: DateTime.parse(body['created_at'] as String),
+  );
+
+  static List<SourceReference> _citations(Object? rawCitations) =>
+      (rawCitations as List<dynamic>? ?? const [])
+          .map((raw) {
+            final item = raw as Map<String, dynamic>;
+            return SourceReference(
+              item['fragment_id'] as String,
+              item['pdf_page'] as int,
+              item['printed_page'] as int?,
+              item['image_url'] as String?,
+              item['unit_number'] as int?,
+            );
+          })
+          .toList(growable: false);
+
+  static TutorLanguage _tutorLanguage(String value) =>
+      value == 'vi' ? TutorLanguage.vietnamese : TutorLanguage.english;
+
+  static String _tutorLanguageValue(TutorLanguage language) =>
+      language == TutorLanguage.vietnamese ? 'vi' : 'en';
 
   @override
   Future<QuizSession> createQuiz(QuizSetup setup) async {

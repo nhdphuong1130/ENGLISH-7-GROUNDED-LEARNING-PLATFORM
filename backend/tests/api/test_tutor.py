@@ -152,7 +152,7 @@ def test_student_manages_and_asks_in_owned_conversation(client) -> None:
 
     assert created.status_code == 201
     assert listed.status_code == 200
-    assert len(listed.json()) == 1
+    assert len(listed.json()["items"]) == 1
     assert detail.status_code == 200
     assert detail.json()["exchanges"] == []
     assert answer.status_code == 200
