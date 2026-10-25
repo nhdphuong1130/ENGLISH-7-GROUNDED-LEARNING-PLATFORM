@@ -62,6 +62,20 @@ Luồng truy xuất tri thức gia sư (GraphRAG):
 4. Hợp nhất điểm số qua thuật toán Reciprocal Rank Fusion (RRF) để chọn đoạn trích SGK chuẩn nhất.
 5. Mô hình ngôn ngữ tổng hợp lời giảng sư phạm kèm trích dẫn số trang và Unit gửi về cho học sinh.
 
+### Hội thoại với Gia sư AI
+
+Gia sư trả lời tự nhiên như một người hướng dẫn thân thiện, có thể dùng cách
+xưng hô do học sinh yêu cầu, nhưng chỉ giải thích nội dung đã được xác minh từ
+*Tiếng Anh 7 Global Success*. Lịch sử hội thoại chỉ giúp hiểu câu hỏi nối tiếp;
+nó không bao giờ được xem là bằng chứng. Câu trả lời có căn cứ hiển thị nguồn
+theo dạng `[Unit X, Page Y]`, còn câu hỏi ngoài phạm vi nhận lời từ chối cố định
+thay vì nội dung suy đoán.
+
+Mỗi tài khoản có tối đa 20 đoạn chat, mỗi đoạn tối đa 50 lượt hỏi–đáp. Chỉ sáu
+lượt hoàn tất gần nhất được gửi cho AI và mỗi đoạn chat hết hạn sau 90 ngày.
+Trong ứng dụng, học sinh có thể mở lịch sử, tiếp tục, xóa hoặc tạo đoạn chat mới.
+Các API lịch sử đều kiểm tra quyền sở hữu theo tài khoản đăng nhập.
+
 ---
 
 ## Công nghệ Chính

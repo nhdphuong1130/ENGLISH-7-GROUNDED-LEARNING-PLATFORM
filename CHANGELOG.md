@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Persistent, owner-scoped AI Tutor conversations with history listing,
+  reopening, deletion, learner-selected forms of address, and grounded
+  multi-turn context.
 - Design for ownership-scoped AI Tutor conversation history with natural
   pedagogical dialogue, learner-selected forms of address, strict textbook
   grounding, bounded context, retention, and storage limits.
@@ -27,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Tutor responses now use a warm, age-appropriate teaching style while using
+  only verified *Tiếng Anh 7 Global Success* evidence. Conversations are
+  limited to 20 per learner and 50 exchanges each, retain only 90 days, and
+  send at most six recent exchanges to the model as non-evidence context.
 - Removed hardcoded sample credentials and phone numbers from login and forgot password input hint texts.
 - Fixed `RegisterScreen` staying on screen with infinite loading spinner after successful registration by popping the route and safely resetting loading state in finally block.
 - Removed English example sentence display from flashcard back card and deck card list, keeping flashcards focused strictly on English word + phonetic on the front, and Vietnamese meaning on the back.

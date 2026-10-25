@@ -9,9 +9,14 @@ class SourceCitation extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final printed = source.printedPage;
-    final label = printed == null
-        ? 'SGK PDF trang ${source.pdfPage}'
-        : 'SGK trang $printed (PDF ${source.pdfPage})';
+    final unit = source.unitNumber;
+    final label = unit == null
+        ? (printed == null
+              ? 'SGK PDF trang ${source.pdfPage}'
+              : 'SGK trang $printed (PDF ${source.pdfPage})')
+        : (printed == null
+              ? '[Unit $unit, Page PDF ${source.pdfPage}]'
+              : '[Unit $unit, Page $printed] · PDF ${source.pdfPage}');
     return Semantics(
       label: 'Nguồn SGK',
       child: Chip(

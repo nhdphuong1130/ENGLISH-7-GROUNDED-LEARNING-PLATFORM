@@ -62,6 +62,7 @@ void main() {
     await _openTutor(tester, api);
 
     expect(find.text('Healthy nghĩa là khỏe mạnh.'), findsOneWidget);
+    expect(find.text('[Unit 2, Page 20] · PDF 22'), findsOneWidget);
     await tester.tap(find.byKey(const Key('tutor-history')));
     await tester.pumpAndSettle();
     expect(find.text('Unit 2 health'), findsOneWidget);
