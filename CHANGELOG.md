@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Design for ownership-scoped AI Tutor conversation history with natural
+  pedagogical dialogue, learner-selected forms of address, strict textbook
+  grounding, bounded context, retention, and storage limits.
 - Vietnamese setup guide for cloning the project from GitHub and sending real
   OTP messages through an Android SIM Gateway over USB/ADB or Wi-Fi LAN.
 - 3-step sequential onboarding wizard for registration and password reset (`Số điện thoại` -> `Xác thực OTP` -> `Thiết lập mật khẩu`) with visual step indicator.
