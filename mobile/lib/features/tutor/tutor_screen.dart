@@ -40,10 +40,14 @@ class _TutorScreenState extends State<TutorScreen> {
   final _question = TextEditingController();
   final _scrollController = ScrollController();
   final List<_ChatMessage> _messages = [];
+  List<TutorConversationSummary> _conversations = [];
 
   TutorLanguage _language = TutorLanguage.vietnamese;
+  String? _conversationId;
   SelectedImage? _image;
   bool _busy = false;
+  bool _loadingHistory = false;
+  bool _conversationFull = false;
 
   static const _suggestions = [
     'Giải thích thì hiện tại đơn trong Unit 1',
@@ -58,6 +62,7 @@ class _TutorScreenState extends State<TutorScreen> {
     if (widget.initialPrompt != null && widget.initialPrompt!.isNotEmpty) {
       _question.text = widget.initialPrompt!;
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadConversations());
   }
 
   @override
@@ -97,9 +102,8 @@ class _TutorScreenState extends State<TutorScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể chọn ảnh: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Không thể chọn ảnh: $e')));
       }
     }
   }
@@ -112,9 +116,8 @@ class _TutorScreenState extends State<TutorScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Không thể chụp ảnh: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Không thể chụp ảnh: $e')));
       }
     }
   }
@@ -139,12 +142,17 @@ class _TutorScreenState extends State<TutorScreen> {
                   height: 4,
                   margin: const EdgeInsets.only(bottom: 16),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                    color: theme.colorScheme.onSurfaceVariant.withValues(
+                      alpha: 0.3,
+                    ),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 4,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -160,7 +168,10 @@ class _TutorScreenState extends State<TutorScreen> {
                   key: const Key('capture-image'),
                   leading: CircleAvatar(
                     backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Icon(Icons.camera_alt_rounded, color: theme.colorScheme.primary),
+                    child: Icon(
+                      Icons.camera_alt_rounded,
+                      color: theme.colorScheme.primary,
+                    ),
                   ),
                   title: const Text('Chụp ảnh bài tập'),
                   subtitle: const Text('Mở camera để chụp bài tập hoặc SGK'),
@@ -173,7 +184,10 @@ class _TutorScreenState extends State<TutorScreen> {
                   key: const Key('select-image'),
                   leading: CircleAvatar(
                     backgroundColor: theme.colorScheme.secondaryContainer,
-                    child: Icon(Icons.photo_library_rounded, color: theme.colorScheme.secondary),
+                    child: Icon(
+                      Icons.photo_library_rounded,
+                      color: theme.colorScheme.secondary,
+                    ),
                   ),
                   title: const Text('Chọn ảnh từ thư viện'),
                   subtitle: const Text('Tải ảnh bài tập có sẵn trong máy'),
@@ -190,13 +204,202 @@ class _TutorScreenState extends State<TutorScreen> {
     );
   }
 
-  void _resetChat() {
+  Future<void> _loadConversations() async {
+    if (_loadingHistory) return;
+    setState(() => _loadingHistory = true);
+    try {
+      final conversations = await widget.api.loadTutorConversations();
+      if (!mounted) return;
+      setState(() => _conversations = List.of(conversations));
+      if (_conversationId == null && conversations.isNotEmpty) {
+        await _openConversation(conversations.first.id);
+      }
+    } finally {
+      if (mounted) setState(() => _loadingHistory = false);
+    }
+  }
+
+  Future<void> _openConversation(String conversationId) async {
+    try {
+      final conversation = await widget.api.loadTutorConversation(
+        conversationId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _conversationId = conversation.id;
+        _language = conversation.language;
+        _conversationFull = conversation.exchanges.length >= 50;
+        _messages
+          ..clear()
+          ..addAll(
+            conversation.exchanges.expand(
+              (exchange) => [
+                _ChatMessage(isUser: true, text: exchange.question),
+                _ChatMessage(
+                  isUser: false,
+                  text: exchange.answer,
+                  result: TutorResult(
+                    exchange.answer,
+                    exchange.citations,
+                    conversationId: conversation.id,
+                  ),
+                  isRefusal: exchange.citations.isEmpty,
+                ),
+              ],
+            ),
+          );
+      });
+      _scrollToBottom();
+    } on TutorConversationUnavailable {
+      if (!mounted) return;
+      setState(() {
+        _conversationId = null;
+        _messages.clear();
+        _conversationFull = false;
+      });
+      await _loadConversations();
+    }
+  }
+
+  Future<void> _resetChat() async {
     setState(() {
+      _conversationId = null;
       _messages.clear();
       _question.clear();
       _image = null;
       _busy = false;
+      _conversationFull = false;
     });
+    final created = await widget.api.createTutorConversation(
+      title: 'Đoạn chat mới',
+      language: _language,
+    );
+    if (!mounted) return;
+    setState(() {
+      _conversationId = created.id;
+      _conversations = [
+        created,
+        ..._conversations.where((item) => item.id != created.id),
+      ];
+    });
+  }
+
+  Future<String> _ensureConversation(String title) async {
+    if (_conversationId != null) return _conversationId!;
+    final created = await widget.api.createTutorConversation(
+      title: title,
+      language: _language,
+    );
+    if (mounted) {
+      setState(() {
+        _conversationId = created.id;
+        _conversations = [
+          created,
+          ..._conversations.where((item) => item.id != created.id),
+        ];
+      });
+    }
+    return created.id;
+  }
+
+  Future<void> _deleteConversation(String conversationId) async {
+    await widget.api.deleteTutorConversation(conversationId);
+    if (!mounted) return;
+    setState(() {
+      _conversations = _conversations
+          .where((item) => item.id != conversationId)
+          .toList(growable: false);
+      if (_conversationId == conversationId) {
+        _conversationId = null;
+        _messages.clear();
+        _conversationFull = false;
+      }
+    });
+  }
+
+  Future<void> _confirmDeleteConversation(
+    BuildContext sheetContext,
+    String conversationId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Xóa đoạn chat?'),
+        content: const Text('Lịch sử trong đoạn chat này sẽ bị xóa.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Hủy'),
+          ),
+          FilledButton(
+            key: const Key('confirm-delete-conversation'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _deleteConversation(conversationId);
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+  }
+
+  Future<void> _showHistory() async {
+    await _loadConversations();
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SizedBox(
+          height: 420,
+          child: Column(
+            children: [
+              const ListTile(
+                title: Text(
+                  'Lịch sử trò chuyện',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text('Tối đa 20 đoạn chat, lưu trong 90 ngày'),
+              ),
+              Expanded(
+                child: _conversations.isEmpty
+                    ? const Center(child: Text('Chưa có đoạn chat nào'))
+                    : ListView.builder(
+                        itemCount: _conversations.length,
+                        itemBuilder: (context, index) {
+                          final item = _conversations[index];
+                          return ListTile(
+                            key: Key('conversation-${item.id}'),
+                            leading: const Icon(Icons.chat_bubble_outline),
+                            title: Text(item.title),
+                            subtitle: Text(
+                              item.language == TutorLanguage.vietnamese
+                                  ? 'Tiếng Việt'
+                                  : 'English',
+                            ),
+                            onTap: () {
+                              Navigator.pop(sheetContext);
+                              _openConversation(item.id);
+                            },
+                            trailing: IconButton(
+                              key: Key('delete-conversation-${item.id}'),
+                              tooltip: 'Xóa đoạn chat',
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () => _confirmDeleteConversation(
+                                sheetContext,
+                                item.id,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _ask([String? customPrompt]) async {
@@ -209,11 +412,7 @@ class _TutorScreenState extends State<TutorScreen> {
 
     setState(() {
       _messages.add(
-        _ChatMessage(
-          isUser: true,
-          text: queryText,
-          image: attachedImage,
-        ),
+        _ChatMessage(isUser: true, text: queryText, image: attachedImage),
       );
       _busy = true;
       _question.clear();
@@ -222,7 +421,9 @@ class _TutorScreenState extends State<TutorScreen> {
     _scrollToBottom();
 
     try {
-      final result = await widget.api.askTutor(
+      final conversationId = await _ensureConversation(queryText);
+      final result = await widget.api.askTutorInConversation(
+        conversationId,
         TutorQuery(
           queryText,
           _language,
@@ -242,6 +443,7 @@ class _TutorScreenState extends State<TutorScreen> {
               isUser: false,
               text: result.answer,
               result: result,
+              isRefusal: result.scopeStatus == 'out_of_scope',
             ),
           );
         });
@@ -259,6 +461,21 @@ class _TutorScreenState extends State<TutorScreen> {
           );
         });
         _scrollToBottom();
+      }
+    } on TutorConversationFull {
+      if (mounted) setState(() => _conversationFull = true);
+    } on TutorConversationUnavailable {
+      if (mounted) {
+        setState(() {
+          _conversationId = null;
+          _messages.clear();
+          _conversationFull = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đoạn chat đã hết hạn. Hãy bắt đầu đoạn chat mới.'),
+          ),
+        );
       }
     } finally {
       if (mounted) {
@@ -336,14 +553,20 @@ class _TutorScreenState extends State<TutorScreen> {
             onSelectionChanged: (selection) =>
                 setState(() => _language = selection.first),
           ),
-          if (_messages.isNotEmpty) ...[
-            const SizedBox(width: 4),
+          const SizedBox(width: 4),
+          IconButton(
+            key: const Key('tutor-history'),
+            icon: const Icon(Icons.history_rounded, size: 21),
+            tooltip: 'Lịch sử trò chuyện',
+            onPressed: _loadingHistory ? null : _showHistory,
+          ),
+          if (_messages.isNotEmpty || _conversationId != null)
             IconButton(
+              key: const Key('new-tutor-conversation'),
               icon: const Icon(Icons.add_comment_outlined, size: 20),
               tooltip: 'Đoạn chat mới',
-              onPressed: _resetChat,
+              onPressed: _busy ? null : _resetChat,
             ),
-          ],
         ],
       ),
     );
@@ -428,7 +651,9 @@ class _TutorScreenState extends State<TutorScreen> {
                     color: theme.colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                   ),
                   child: Row(
@@ -498,7 +723,9 @@ class _TutorScreenState extends State<TutorScreen> {
                         color: theme.colorScheme.surface.withValues(alpha: 0.9),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                          color: theme.colorScheme.outlineVariant.withValues(
+                            alpha: 0.5,
+                          ),
                         ),
                       ),
                       child: Column(
@@ -513,7 +740,8 @@ class _TutorScreenState extends State<TutorScreen> {
                                 width: 180,
                                 height: 130,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -618,10 +846,7 @@ class _TutorScreenState extends State<TutorScreen> {
             height: 32,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  theme.colorScheme.primary,
-                  theme.colorScheme.tertiary,
-                ],
+                colors: [theme.colorScheme.primary, theme.colorScheme.tertiary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -646,7 +871,9 @@ class _TutorScreenState extends State<TutorScreen> {
                   bottomRight: Radius.circular(18),
                 ),
                 border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.6,
+                  ),
                 ),
               ),
               child: Column(
@@ -665,7 +892,9 @@ class _TutorScreenState extends State<TutorScreen> {
                     const SizedBox(height: 14),
                     Divider(
                       height: 1,
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.5,
+                      ),
                     ),
                     const SizedBox(height: 10),
                     Row(
@@ -733,10 +962,7 @@ class _TutorScreenState extends State<TutorScreen> {
             height: 32,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [
-                  theme.colorScheme.primary,
-                  theme.colorScheme.tertiary,
-                ],
+                colors: [theme.colorScheme.primary, theme.colorScheme.tertiary],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -789,6 +1015,27 @@ class _TutorScreenState extends State<TutorScreen> {
 
   Widget _buildInputDock(BuildContext context) {
     final theme = Theme.of(context);
+    if (_conversationFull) {
+      return SafeArea(
+        top: false,
+        child: Container(
+          key: const Key('conversation-full'),
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            border: Border(
+              top: BorderSide(color: theme.colorScheme.outlineVariant),
+            ),
+          ),
+          child: FilledButton.icon(
+            onPressed: _resetChat,
+            icon: const Icon(Icons.add_comment_outlined),
+            label: const Text('Bắt đầu đoạn chat mới'),
+          ),
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -815,9 +1062,14 @@ class _TutorScreenState extends State<TutorScreen> {
             if (_image != null) ...[
               Container(
                 margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primaryContainer.withValues(alpha: 0.4),
+                  color: theme.colorScheme.primaryContainer.withValues(
+                    alpha: 0.4,
+                  ),
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(
                     color: theme.colorScheme.primary.withValues(alpha: 0.25),
@@ -877,7 +1129,9 @@ class _TutorScreenState extends State<TutorScreen> {
             ],
             Container(
               decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                color: theme.colorScheme.surfaceContainerHighest.withValues(
+                  alpha: 0.5,
+                ),
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(color: theme.colorScheme.outlineVariant),
               ),
@@ -887,9 +1141,14 @@ class _TutorScreenState extends State<TutorScreen> {
                 children: [
                   IconButton(
                     key: const Key('attach-button'),
-                    icon: const Icon(Icons.add_circle_outline_rounded, size: 24),
+                    icon: const Icon(
+                      Icons.add_circle_outline_rounded,
+                      size: 24,
+                    ),
                     tooltip: 'Đính kèm ảnh bài tập',
-                    onPressed: _busy ? null : () => _showAttachmentPicker(context),
+                    onPressed: _busy
+                        ? null
+                        : () => _showAttachmentPicker(context),
                     visualDensity: VisualDensity.compact,
                     padding: const EdgeInsets.all(6),
                     constraints: const BoxConstraints(),

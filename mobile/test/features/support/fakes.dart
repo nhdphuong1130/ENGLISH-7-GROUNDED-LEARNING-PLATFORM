@@ -29,7 +29,12 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
   );
 
   bool refuseTutor = false;
+  bool conversationFull = false;
   final tutorQueries = <TutorQuery>[];
+  final tutorConversations = <TutorConversationSummary>[];
+  final tutorConversationDetails = <String, TutorConversation>{};
+  int createdTutorConversations = 0;
+  final deletedTutorConversations = <String>[];
   StudentProfile profile = defaultProfile;
   StudentProfile? restoredProfile;
   Object? restoreError;
@@ -228,6 +233,72 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
           ? 'Tập thể dục mỗi ngày.'
           : 'Exercise every day.',
       const [SourceReference('fragment-1', 22, 20)],
+    );
+  }
+
+  @override
+  Future<TutorConversationSummary> createTutorConversation({
+    required String title,
+    required TutorLanguage language,
+    String? addressingPreference,
+  }) async {
+    createdTutorConversations += 1;
+    final now = DateTime.utc(2026, 10, 25, createdTutorConversations);
+    final conversation = TutorConversationSummary(
+      id: 'conversation-$createdTutorConversations',
+      title: title,
+      language: language,
+      addressingPreference: addressingPreference,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt: now.add(const Duration(days: 90)),
+    );
+    tutorConversations.insert(0, conversation);
+    tutorConversationDetails[conversation.id] = TutorConversation(
+      id: conversation.id,
+      title: conversation.title,
+      language: conversation.language,
+      addressingPreference: conversation.addressingPreference,
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt,
+      expiresAt: conversation.expiresAt,
+      exchanges: const [],
+    );
+    return conversation;
+  }
+
+  @override
+  Future<List<TutorConversationSummary>> loadTutorConversations() async =>
+      List.unmodifiable(tutorConversations);
+
+  @override
+  Future<TutorConversation> loadTutorConversation(
+    String conversationId,
+  ) async {
+    final conversation = tutorConversationDetails[conversationId];
+    if (conversation == null) throw const TutorConversationUnavailable();
+    return conversation;
+  }
+
+  @override
+  Future<void> deleteTutorConversation(String conversationId) async {
+    deletedTutorConversations.add(conversationId);
+    tutorConversations.removeWhere((item) => item.id == conversationId);
+    tutorConversationDetails.remove(conversationId);
+  }
+
+  @override
+  Future<TutorResult> askTutorInConversation(
+    String conversationId,
+    TutorQuery query,
+  ) async {
+    if (conversationFull) throw const TutorConversationFull();
+    final result = await askTutor(query);
+    return TutorResult(
+      result.answer,
+      result.citations,
+      conversationId: conversationId,
+      scopeStatus: result.scopeStatus,
     );
   }
 
