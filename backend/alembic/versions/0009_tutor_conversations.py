@@ -84,6 +84,9 @@ def upgrade() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True)),
     )
 
+    # FreeTDS allows only one active result set per connection. Materialize the
+    # legacy rows before inserting conversations so those writes do not close
+    # the cursor that is still being iterated.
     legacy_rows = bind.execute(
         sa.select(
             chats.c.id,
@@ -93,7 +96,7 @@ def upgrade() -> None:
             chats.c.created_at,
             chats.c.updated_at,
         ).where(chats.c.conversation_id.is_(None))
-    ).mappings()
+    ).mappings().all()
     for row in legacy_rows:
         conversation_id = uuid4()
         created_at = row["created_at"]
