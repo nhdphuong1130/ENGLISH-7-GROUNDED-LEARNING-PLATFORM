@@ -4,6 +4,15 @@ from typing import Protocol
 from uuid import UUID
 
 
+@dataclass(slots=True)
+class AIProviderError(Exception):
+    code: str
+    message: str = "The AI provider request failed"
+
+    def __str__(self) -> str:
+        return self.message
+
+
 class Language(StrEnum):
     VIETNAMESE = "vi"
     ENGLISH = "en"

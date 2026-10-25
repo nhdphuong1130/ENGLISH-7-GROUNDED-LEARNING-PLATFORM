@@ -6,6 +6,7 @@ from uuid import UUID
 from english7.api.errors import ApplicationError
 from english7.modules.ai.contracts import (
     AIProvider,
+    AIProviderError,
     AIRequest,
     ConversationTurn,
     Evidence,
@@ -227,19 +228,27 @@ class TutorService:
             )
             for item in context.fragments
         )
-        generated = self._provider.generate(
-            AIRequest(
-                query,
-                language,
-                evidence,
-                history=tuple(
-                    ConversationTurn(item.question, item.answer) for item in history
-                ),
-                addressing_preference=(
-                    conversation.addressing_preference if conversation else None
-                ),
+        try:
+            generated = self._provider.generate(
+                AIRequest(
+                    query,
+                    language,
+                    evidence,
+                    history=tuple(
+                        ConversationTurn(item.question, item.answer)
+                        for item in history
+                    ),
+                    addressing_preference=(
+                        conversation.addressing_preference if conversation else None
+                    ),
+                )
             )
-        )
+        except AIProviderError:
+            raise ApplicationError(
+                "ai_provider_unavailable",
+                "The AI tutor is temporarily unavailable. Please try again.",
+                503,
+            ) from None
         if generated.scope_status is ScopeStatus.OUT_OF_SCOPE:
             result = TutorAnswer(
                 self._out_of_scope(language),

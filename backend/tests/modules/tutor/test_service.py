@@ -4,7 +4,12 @@ from uuid import uuid4
 import pytest
 
 from english7.api.errors import ApplicationError
-from english7.modules.ai.contracts import AIResponse, Language, ScopeStatus
+from english7.modules.ai.contracts import (
+    AIProviderError,
+    AIResponse,
+    Language,
+    ScopeStatus,
+)
 from english7.modules.retrieval.service import (
     Citation,
     GroundedContext,
@@ -197,3 +202,28 @@ def test_tutor_rejects_language_mismatch() -> None:
         service.ask("Giữ sức khỏe thế nào?", Language.VIETNAMESE)
 
     assert captured.value.code == "invalid_ai_response"
+
+
+def test_provider_failure_is_safe_and_does_not_append_exchange() -> None:
+    owner_id = uuid4()
+    conversations = FakeConversations(owner_id)
+    provider = FakeProvider(
+        lambda _: (_ for _ in ()).throw(AIProviderError("ai_provider_failed"))
+    )
+    service = TutorService(
+        FakeRetrieval(grounded_context()),
+        provider,
+        conversations=conversations,
+    )
+
+    with pytest.raises(ApplicationError) as captured:
+        service.ask(
+            "How can I stay healthy?",
+            Language.ENGLISH,
+            user_id=owner_id,
+            conversation_id=conversations.record.id,
+        )
+
+    assert captured.value.code == "ai_provider_unavailable"
+    assert captured.value.status_code == 503
+    assert conversations.appended == []

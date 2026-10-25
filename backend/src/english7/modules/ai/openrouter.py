@@ -1,5 +1,4 @@
 import json
-from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.request import Request, urlopen
 from uuid import UUID
@@ -7,20 +6,12 @@ from uuid import UUID
 from pydantic import SecretStr
 
 from english7.modules.ai.contracts import (
+    AIProviderError,
     AIRequest,
     AIResponse,
     Language,
     ScopeStatus,
 )
-
-
-@dataclass(slots=True)
-class AIProviderError(Exception):
-    code: str
-    message: str = "The AI provider request failed"
-
-    def __str__(self) -> str:
-        return self.message
 
 
 class JSONHTTPClient(Protocol):
