@@ -36,6 +36,10 @@ from english7.modules.quizzes.repository import (
 from english7.modules.quizzes.service import QuizService
 from english7.modules.quizzes.validator import QuestionValidator
 from english7.modules.retrieval.service import RetrievalService
+from english7.modules.tutor.conversations import (
+    ConversationHistoryService,
+    SQLAlchemyConversationRepository,
+)
 from english7.modules.tutor.service import TutorService
 
 
@@ -510,6 +514,9 @@ def configure_runtime(
         retrieval,
         provider,
         uploads=uploads,
+        conversations=ConversationHistoryService(
+            SQLAlchemyConversationRepository(sessions)
+        ),
         maximum_query_characters=settings.tutor_query_max_characters,
     )
     blueprint_repo = SQLAlchemyBlueprintRepository(sessions)

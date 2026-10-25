@@ -427,6 +427,17 @@ class ConversationHistoryService:
             owner_id, conversation_id, self._context_exchanges
         )
 
+    def exchanges(
+        self, owner_id: UUID, conversation_id: UUID
+    ) -> tuple[ExchangeRecord, ...]:
+        if self.get(owner_id, conversation_id) is None:
+            raise ApplicationError(
+                "conversation_not_found", "Conversation was not found", 404
+            )
+        return self._repository.recent_exchanges(
+            owner_id, conversation_id, self._maximum_exchanges
+        )
+
     def append_exchange(
         self,
         *,

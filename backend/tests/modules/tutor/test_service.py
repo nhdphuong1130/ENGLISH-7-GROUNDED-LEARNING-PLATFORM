@@ -1,15 +1,17 @@
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
 
 from english7.api.errors import ApplicationError
-from english7.modules.ai.contracts import AIResponse, Language
+from english7.modules.ai.contracts import AIResponse, Language, ScopeStatus
 from english7.modules.retrieval.service import (
     Citation,
     GroundedContext,
     RetrievalCandidate,
 )
 from english7.modules.tutor.service import TutorService
+from english7.modules.tutor.conversations import ConversationRecord, ExchangeRecord
 
 
 def grounded_context() -> GroundedContext:
@@ -49,15 +51,104 @@ class FakeProvider:
         return self.responder(request)
 
 
+class FakeConversations:
+    def __init__(self, owner_id, exchanges=()) -> None:
+        now = datetime.now(timezone.utc)
+        self.record = ConversationRecord(
+            id=uuid4(),
+            user_id=owner_id,
+            title="Unit 2 health",
+            language="en",
+            addressing_preference="cô-em",
+            expires_at=now + timedelta(days=90),
+            created_at=now,
+            updated_at=now,
+        )
+        self.exchanges = tuple(exchanges)
+        self.appended = []
+
+    def ensure_can_ask(self, owner_id, conversation_id):
+        assert owner_id == self.record.user_id
+        assert conversation_id == self.record.id
+        return self.record
+
+    def context_for_ask(self, owner_id, conversation_id):
+        return self.exchanges[-6:]
+
+    def append_exchange(self, **values):
+        self.appended.append(values)
+
+    def set_addressing_preference(self, owner_id, conversation_id, preference):
+        self.record = ConversationRecord(
+            id=self.record.id,
+            user_id=self.record.user_id,
+            title=self.record.title,
+            language=self.record.language,
+            addressing_preference=preference,
+            expires_at=self.record.expires_at,
+            created_at=self.record.created_at,
+            updated_at=self.record.updated_at,
+        )
+        return self.record
+
+
 def test_tutor_does_not_call_llm_without_grounded_context() -> None:
     provider = FakeProvider(lambda _: pytest.fail("provider must not be called"))
     service = TutorService(FakeRetrieval(GroundedContext((), ())), provider)
 
-    with pytest.raises(ApplicationError) as captured:
-        service.ask("Tell me about algebra", Language.ENGLISH)
+    answer = service.ask("Tell me about algebra", Language.ENGLISH)
 
-    assert captured.value.code == "out_of_scope"
+    assert answer.scope_status is ScopeStatus.OUT_OF_SCOPE
+    assert answer.citations == ()
+    assert "English 7" in answer.answer
     assert provider.requests == []
+
+
+def test_conversation_history_is_bounded_context_and_never_evidence() -> None:
+    owner_id = uuid4()
+    exchanges = tuple(
+        ExchangeRecord(
+            id=uuid4(),
+            conversation_id=uuid4(),
+            sequence_number=number,
+            question=f"q{number}",
+            answer=f"a{number}",
+            language="en",
+            upload_id=None,
+            citations=(),
+            created_at=datetime.now(timezone.utc),
+        )
+        for number in range(1, 9)
+    )
+    conversations = FakeConversations(owner_id, exchanges)
+    context = grounded_context()
+    provider = FakeProvider(
+        lambda request: AIResponse(
+            "Grounded answer",
+            request.language,
+            (request.evidence[0].fragment_id,),
+        )
+    )
+    retrieval = FakeRetrieval(context)
+    service = TutorService(retrieval, provider, conversations=conversations)
+
+    service.ask(
+        "Why is exercise useful?",
+        Language.ENGLISH,
+        user_id=owner_id,
+        conversation_id=conversations.record.id,
+    )
+
+    request = provider.requests[0]
+    assert [turn.learner for turn in request.history] == [
+        "q3", "q4", "q5", "q6", "q7", "q8"
+    ]
+    assert tuple(item.text for item in request.evidence) == (
+        "Exercise every day to stay healthy.",
+    )
+    assert request.addressing_preference == "cô-em"
+    assert retrieval.queries == ["Why is exercise useful?"]
+    assert len(conversations.appended) == 1
 
 
 def test_tutor_rejects_citation_not_present_in_context() -> None:

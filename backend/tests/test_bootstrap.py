@@ -54,6 +54,7 @@ def test_configures_real_tutor_and_upload_services_from_settings() -> None:
 
     assert runtime is not None
     assert app.state.tutor_service is not None
+    assert app.state.tutor_service._conversations is not None
     assert app.state.image_upload_service is not None
 
 
