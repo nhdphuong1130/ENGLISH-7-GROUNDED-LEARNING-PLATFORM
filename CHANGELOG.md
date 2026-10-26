@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correctly against production SQL Server `BIT` columns.
 
 ### Added
+- Live administrator dashboard refresh timestamps and complete Android/Web
+  content drill-down for Unit → Section → Activity → textbook fragment,
+  question-bank records, textbook deck → flashcard, and speaking prompts.
+- Entity-specific administrator forms and audited lifecycle controls for
+  detailed curriculum and practice content, including optimistic versions,
+  grounded publishing, archival, revision history, and confirmed safe delete.
 - OTP verification for administrator logins from new Android, iOS/PWA or web
   devices, with hashed 30-day trusted-device records, attempt limits and an
   authenticated revoke-all endpoint.
