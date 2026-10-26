@@ -1,7 +1,9 @@
 const CACHE_NAME = 'english7-shell-v1';
 const APP_SHELL = [
   '/app/',
+  '/app/flutter.js',
   '/app/flutter_bootstrap.js',
+  '/app/main.dart.js',
   '/app/manifest.json',
   '/app/icons/Icon-192.png',
   '/app/icons/Icon-512.png',

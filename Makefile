@@ -105,6 +105,7 @@ test-mobile:
 
 test-pwa:
 	python3 scripts/test_pwa_assets.py
+	python3 scripts/test_deploy_pwa.py
 
 build-pwa: test-pwa
 	cd mobile && $(FLUTTER) build web --release --base-href /app/ \

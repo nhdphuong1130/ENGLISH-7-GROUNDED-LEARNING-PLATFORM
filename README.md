@@ -190,6 +190,8 @@ flutter run
 | `make test` | Chạy toàn bộ kiểm thử backend (`pytest`) và mobile (`flutter test`) |
 | `make test-backend` | Chạy unit/API test backend |
 | `make test-mobile` | Chạy unit và widget test mobile |
+| `make test-pwa` | Kiểm tra manifest, service worker và hợp đồng deploy PWA |
+| `make build-pwa` | Build bản Flutter Web cài từ Safari tại `/app/` |
 | `make test-speech` | Kiểm thử runtime âm thanh, không cần tải mô hình |
 | `make test-learning-live` | Kiểm tra lưu/đọc trên SQL Server và rollback dữ liệu kiểm thử |
 | `make analyze` | Chạy phân tích cú pháp tĩnh Flutter (yêu cầu 0 lỗi, 0 cảnh báo) |
@@ -229,6 +231,18 @@ flashcard và các chức năng học khác vẫn dùng được.
 
 `make down` dừng cả các container giọng nói nếu đang bật, không xóa volume dữ liệu
 hay model cache. Chi tiết cài đặt và giới hạn: [speech runtime](docs/speech-runtime.md).
+
+## Cài trên iPhone qua Safari
+
+Bản PWA dùng đầy đủ tài khoản và dữ liệu của ứng dụng Android. Trên iPhone, mở
+`https://13.229.72.146.sslip.io/app/` bằng **Safari**, bấm **Chia sẻ**, chọn
+**Thêm vào Màn hình chính**, rồi mở biểu tượng **English 7**.
+
+Khi dùng luyện nói lần đầu, chọn **Cho phép** khi Safari hỏi quyền microphone.
+Nếu đã từ chối, mở **Cài đặt → Safari → Microphone** và chuyển sang cho phép,
+sau đó đóng và mở lại English 7. Tutor AI, bài học và tiến độ cần kết nối mạng;
+service worker chỉ lưu bộ khung giao diện và không lưu phản hồi AI hay dữ liệu
+học tập riêng tư.
 
 ## Tài Khoản Mẫu Đăng Nhập Mặc Định
 

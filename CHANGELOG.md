@@ -8,6 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Installable Flutter Web PWA for iPhone Safari, including same-origin API
+  access, Home Screen metadata, browser audio playback, microphone-based WAV
+  speaking practice, network-safe application-shell caching, and repeatable
+  atomic Caddy deployment under `/app/`.
 - Automatic AI-generated IPA for personal flashcards and personal speaking
   vocabulary, with regeneration when the English text changes.
 - Admin student drill-down and account-grouped AI Tutor monitoring: one row per
