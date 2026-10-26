@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
+from datetime import date, datetime
+from decimal import Decimal
+from enum import Enum
 from typing import Any
 from uuid import UUID
 
@@ -26,6 +29,14 @@ def _redact(value: Any, *, key: str | None = None) -> Any:
         return {str(item_key): _redact(item, key=str(item_key)) for item_key, item in value.items()}
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
         return [_redact(item) for item in value]
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, (datetime, date)):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, Enum):
+        return _redact(value.value)
     return value
 
 
