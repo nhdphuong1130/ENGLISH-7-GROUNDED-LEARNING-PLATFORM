@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'learning_api.dart';
+import 'admin_api.dart';
 
 enum TutorLanguage { vietnamese, english }
 
@@ -527,7 +528,7 @@ class AdminChatItem {
   );
 }
 
-abstract interface class StudentApi implements LearningApi {
+abstract interface class StudentApi implements LearningApi, AdminApi {
   Future<StudentProgress> loadProgress();
   Future<AdminProgressOverview> loadAdminProgress();
   Future<List<AdminChatStudentSummary>> loadAdminChatStudents();

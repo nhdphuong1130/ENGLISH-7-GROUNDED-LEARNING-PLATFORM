@@ -5,10 +5,13 @@ import '../api/api_client.dart';
 import '../api/api_error.dart';
 import 'student_api.dart';
 import 'api_learning.dart';
+import 'api_admin.dart';
 
-class ApiStudentApi with ApiLearning implements StudentApi {
+class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
   @override
   ApiClient get learningClient => _client;
+  @override
+  ApiClient get adminClient => _client;
   @override
   Future<StudentProgress> loadProgress() async {
     final response = await _client.getJson('/api/v1/quizzes/progress');

@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:english7_mobile/app/student_api.dart';
+import 'package:english7_mobile/app/admin_api.dart';
 import 'package:english7_mobile/features/tutor/image_selector.dart';
 
 import 'fake_learning.dart';
 
-class FakeStudentApi with EmptyLearning implements StudentApi {
+class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
   @override
   Future<Uint8List> exportAdminStudents(String format) async =>
       Uint8List.fromList([80, 75]);
