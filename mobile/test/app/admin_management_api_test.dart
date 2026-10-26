@@ -39,6 +39,7 @@ void main() {
         'archived_students': 1,
         'submitted_tests': 7,
         'draft_content': 3,
+        'refreshed_at': '2026-10-27T03:00:00Z',
       }),
       jsonResponse(200, {
         'items': [
@@ -65,8 +66,36 @@ void main() {
     final students = await api.loadAdminStudents(query: 'learner');
 
     expect(dashboard.totalStudents, 4);
+    expect(dashboard.refreshedAt, DateTime.utc(2026, 10, 27, 3));
     expect(students.items.single.status, AdminStudentStatus.active);
     expect(transport.requests.last.uri.queryParameters['q'], 'learner');
+  });
+
+  test('maps child counts and filters nested admin resources', () async {
+    transport.responses.add(
+      jsonResponse(200, {
+        'items': [
+          {
+            'id': 'fragment-1',
+            'normalized_text': 'Grounded content',
+            'version': 2,
+            'status': 'draft',
+            'child_count': 3,
+          },
+        ],
+      }),
+    );
+
+    final records = await api.loadAdminResource(
+      '/api/v1/admin/content/fragments',
+      query: const {'activity_id': 'activity-1'},
+    );
+
+    expect(records.single.childCount, 3);
+    expect(
+      transport.requests.single.uri.queryParameters['activity_id'],
+      'activity-1',
+    );
   });
 
   test(

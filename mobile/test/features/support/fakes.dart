@@ -226,8 +226,19 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
   List<AdminAuditRecord> adminAuditRecords = [];
 
   @override
-  Future<List<AdminContentRecord>> loadAdminResource(String path) async =>
-      adminResources[path] ?? const [];
+  Future<List<AdminContentRecord>> loadAdminResource(
+    String path, {
+    Map<String, Object?> query = const {},
+  }) async {
+    final filtered = <String, String>{
+      for (final entry in query.entries)
+        if (entry.value != null) entry.key: entry.value.toString(),
+    };
+    final key = filtered.isEmpty
+        ? path
+        : Uri(path: path, queryParameters: filtered).toString();
+    return adminResources[key] ?? const [];
+  }
 
   @override
   Future<AdminContentRecord> createAdminResource(

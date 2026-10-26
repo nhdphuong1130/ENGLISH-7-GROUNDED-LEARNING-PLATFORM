@@ -157,8 +157,11 @@ mixin ApiAdmin implements AdminApi {
       );
 
   @override
-  Future<List<AdminContentRecord>> loadAdminResource(String path) async {
-    final body = (await adminClient.getJson(path)).body;
+  Future<List<AdminContentRecord>> loadAdminResource(
+    String path, {
+    Map<String, Object?> query = const {},
+  }) async {
+    final body = (await adminClient.getJson(_query(path, query))).body;
     return (body['items'] as List? ?? [])
         .map(
           (item) => AdminContentRecord.fromJson(

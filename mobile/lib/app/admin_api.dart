@@ -9,6 +9,7 @@ class AdminDashboardSummary {
   final int archivedStudents;
   final int submittedTests;
   final int draftContent;
+  final DateTime? refreshedAt;
 
   const AdminDashboardSummary({
     required this.totalStudents,
@@ -17,6 +18,7 @@ class AdminDashboardSummary {
     required this.archivedStudents,
     required this.submittedTests,
     required this.draftContent,
+    this.refreshedAt,
   });
 
   factory AdminDashboardSummary.fromJson(Map<String, Object?> json) =>
@@ -27,6 +29,9 @@ class AdminDashboardSummary {
         archivedStudents: json['archived_students'] as int? ?? 0,
         submittedTests: json['submitted_tests'] as int? ?? 0,
         draftContent: json['draft_content'] as int? ?? 0,
+        refreshedAt: json['refreshed_at'] == null
+            ? null
+            : DateTime.parse(json['refreshed_at'] as String),
       );
 }
 
@@ -155,6 +160,8 @@ class AdminContentRecord {
   final Map<String, Object?> values;
   const AdminContentRecord(this.id, this.version, this.status, this.values);
 
+  int get childCount => values['child_count'] as int? ?? 0;
+
   factory AdminContentRecord.fromJson(Map<String, Object?> json) =>
       AdminContentRecord(
         json['id'] as String,
@@ -243,7 +250,10 @@ abstract interface class AdminApi {
     bool dryRun = true,
   });
   Future<Uint8List> exportAdminStudentAccounts(String format);
-  Future<List<AdminContentRecord>> loadAdminResource(String path);
+  Future<List<AdminContentRecord>> loadAdminResource(
+    String path, {
+    Map<String, Object?> query = const {},
+  });
   Future<AdminContentRecord> createAdminResource(
     String path,
     Map<String, Object?> payload,
@@ -316,8 +326,10 @@ mixin EmptyAdminApi implements AdminApi {
   Future<Uint8List> exportAdminStudentAccounts(String format) async =>
       _unsupported();
   @override
-  Future<List<AdminContentRecord>> loadAdminResource(String path) async =>
-      _unsupported();
+  Future<List<AdminContentRecord>> loadAdminResource(
+    String path, {
+    Map<String, Object?> query = const {},
+  }) async => _unsupported();
   @override
   Future<AdminContentRecord> createAdminResource(
     String path,
