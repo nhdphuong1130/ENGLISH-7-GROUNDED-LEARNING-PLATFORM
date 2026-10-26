@@ -42,9 +42,13 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
     submittedTests: 0,
     draftContent: 0,
   );
+  int dashboardLoadCount = 0;
 
   @override
-  Future<AdminDashboardSummary> loadAdminDashboard() async => adminDashboard;
+  Future<AdminDashboardSummary> loadAdminDashboard() async {
+    dashboardLoadCount += 1;
+    return adminDashboard;
+  }
 
   List<AdminStudentRecord> adminStudents = [];
   String? lastAdminStudentQuery;

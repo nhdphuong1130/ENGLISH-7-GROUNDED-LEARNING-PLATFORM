@@ -25,7 +25,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     _summary = widget.api.loadAdminDashboard();
   }
 
-  void _reload() => setState(() => _summary = widget.api.loadAdminDashboard());
+  Future<void> _reload() async {
+    final future = widget.api.loadAdminDashboard();
+    setState(() {
+      _summary = future;
+    });
+    await future;
+  }
+
+  String _refreshLabel(DateTime value) {
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return 'Cập nhật lúc ${two(local.hour)}:${two(local.minute)} '
+        '${two(local.day)}/${two(local.month)}/${local.year}';
+  }
 
   @override
   Widget build(BuildContext context) => FutureBuilder<AdminDashboardSummary>(
@@ -57,7 +70,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         ('Nội dung nháp', value.draftContent, Icons.edit_note_outlined),
       ];
       return RefreshIndicator(
-        onRefresh: () async => _reload(),
+        onRefresh: _reload,
         child: ListView(
           padding: const EdgeInsets.all(20),
           children: [
@@ -71,6 +84,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
               'Theo dõi tài khoản, học tập và nội dung xuất bản.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
+            if (value.refreshedAt case final refreshedAt?) ...[
+              const SizedBox(height: 6),
+              Text(
+                _refreshLabel(refreshedAt),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
             const SizedBox(height: 16),
             FilledButton.tonalIcon(
               onPressed: widget.onOpenStudents,
