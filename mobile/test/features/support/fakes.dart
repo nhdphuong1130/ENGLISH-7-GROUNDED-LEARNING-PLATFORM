@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:english7_mobile/app/student_api.dart';
+import 'package:english7_mobile/app/admin_api.dart';
 import 'package:english7_mobile/features/tutor/image_selector.dart';
 
 import 'fake_learning.dart';
 
-class FakeStudentApi with EmptyLearning implements StudentApi {
+class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
   @override
   Future<Uint8List> exportAdminStudents(String format) async =>
       Uint8List.fromList([80, 75]);
@@ -33,6 +34,270 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
     averageAccuracy: 0,
     students: [],
   );
+  AdminDashboardSummary adminDashboard = const AdminDashboardSummary(
+    totalStudents: 0,
+    activeStudents: 0,
+    lockedStudents: 0,
+    archivedStudents: 0,
+    submittedTests: 0,
+    draftContent: 0,
+  );
+
+  @override
+  Future<AdminDashboardSummary> loadAdminDashboard() async => adminDashboard;
+
+  List<AdminStudentRecord> adminStudents = [];
+  String? lastAdminStudentQuery;
+  int createdAdminStudents = 0;
+  final lockedAdminStudentIds = <String>[];
+  final archivedAdminStudentIds = <String>[];
+  final deletedAdminStudentIds = <String>[];
+  final resetAdminStudentIds = <String>[];
+  final restoredAdminStudentIds = <String>[];
+
+  AdminStudentRecord _adminStudentWith(
+    AdminStudentRecord value, {
+    String? email,
+    String? fullName,
+    String? schoolName,
+    String? className,
+    bool? isActive,
+    DateTime? archivedAt,
+    AdminStudentStatus? status,
+  }) => AdminStudentRecord(
+    id: value.id,
+    email: email ?? value.email,
+    fullName: fullName ?? value.fullName,
+    dateOfBirth: value.dateOfBirth,
+    gender: value.gender,
+    schoolName: schoolName ?? value.schoolName,
+    className: className ?? value.className,
+    isActive: isActive ?? value.isActive,
+    archivedAt: status == AdminStudentStatus.archived
+        ? (archivedAt ?? DateTime.utc(2026, 10, 26))
+        : archivedAt,
+    status: status ?? value.status,
+  );
+
+  AdminStudentRecord _replaceAdminStudent(
+    String id,
+    AdminStudentRecord Function(AdminStudentRecord value) change,
+  ) {
+    final index = adminStudents.indexWhere((item) => item.id == id);
+    final result = change(adminStudents[index]);
+    adminStudents[index] = result;
+    return result;
+  }
+
+  @override
+  Future<AdminStudentPage> loadAdminStudents({
+    String? query,
+    AdminStudentStatus? status,
+    int offset = 0,
+    int limit = 50,
+  }) async {
+    lastAdminStudentQuery = query;
+    final normalized = query?.toLowerCase();
+    final items = adminStudents.where((item) {
+      final matchesQuery =
+          normalized == null ||
+          item.email.toLowerCase().contains(normalized) ||
+          (item.fullName ?? '').toLowerCase().contains(normalized);
+      return matchesQuery && (status == null || item.status == status);
+    }).toList();
+    return AdminStudentPage(items, items.length, offset, limit);
+  }
+
+  @override
+  Future<AdminStudentRecord> loadAdminStudent(String id) async =>
+      adminStudents.singleWhere((item) => item.id == id);
+
+  @override
+  Future<AdminStudentRecord> createAdminStudent(AdminStudentInput input) async {
+    createdAdminStudents += 1;
+    final value = AdminStudentRecord(
+      id: 'student-created-$createdAdminStudents',
+      email: input.email,
+      fullName: input.fullName,
+      dateOfBirth: input.dateOfBirth,
+      gender: input.gender,
+      schoolName: input.schoolName,
+      className: input.className,
+      isActive: true,
+      status: AdminStudentStatus.active,
+    );
+    adminStudents.add(value);
+    return value;
+  }
+
+  @override
+  Future<AdminStudentRecord> updateAdminStudent(
+    String id,
+    AdminStudentInput input,
+  ) async => _replaceAdminStudent(
+    id,
+    (value) => _adminStudentWith(
+      value,
+      email: input.email,
+      fullName: input.fullName,
+      schoolName: input.schoolName,
+      className: input.className,
+    ),
+  );
+
+  @override
+  Future<void> resetAdminStudentPassword(String id, String password) async {
+    resetAdminStudentIds.add(id);
+  }
+
+  @override
+  Future<AdminStudentRecord> lockAdminStudent(String id) async {
+    lockedAdminStudentIds.add(id);
+    return _replaceAdminStudent(
+      id,
+      (value) => _adminStudentWith(
+        value,
+        isActive: false,
+        status: AdminStudentStatus.locked,
+      ),
+    );
+  }
+
+  @override
+  Future<AdminStudentRecord> unlockAdminStudent(String id) async =>
+      _replaceAdminStudent(
+        id,
+        (value) => _adminStudentWith(
+          value,
+          isActive: true,
+          status: AdminStudentStatus.active,
+        ),
+      );
+
+  @override
+  Future<AdminStudentRecord> archiveAdminStudent(
+    String id,
+    String confirmation,
+  ) async {
+    archivedAdminStudentIds.add(id);
+    return _replaceAdminStudent(
+      id,
+      (value) => _adminStudentWith(
+        value,
+        isActive: false,
+        status: AdminStudentStatus.archived,
+      ),
+    );
+  }
+
+  @override
+  Future<AdminStudentRecord> restoreAdminStudent(String id) async =>
+      _restoreAdminStudent(id);
+
+  AdminStudentRecord _restoreAdminStudent(String id) {
+    restoredAdminStudentIds.add(id);
+    return _replaceAdminStudent(
+      id,
+      (value) => _adminStudentWith(
+        value,
+        isActive: true,
+        status: AdminStudentStatus.active,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteAdminStudent(String id, String confirmation) async {
+    deletedAdminStudentIds.add(id);
+    adminStudents.removeWhere((item) => item.id == id);
+  }
+
+  final Map<String, List<AdminContentRecord>> adminResources = {};
+  List<AdminRevision> adminRevisions = [];
+  final adminActionPaths = <String>[];
+  Map<String, Object?> lastAdminActionPayload = const {};
+  AdminImportReport adminImportReport = const AdminImportReport(
+    0,
+    0,
+    false,
+    [],
+  );
+  bool? lastImportDryRun;
+  List<AdminAuditRecord> adminAuditRecords = [];
+
+  @override
+  Future<List<AdminContentRecord>> loadAdminResource(String path) async =>
+      adminResources[path] ?? const [];
+
+  @override
+  Future<AdminContentRecord> createAdminResource(
+    String path,
+    Map<String, Object?> payload,
+  ) async {
+    final value = AdminContentRecord(
+      'created-${adminResources[path]?.length ?? 0}',
+      1,
+      'draft',
+      {'id': 'created', 'version': 1, 'status': 'draft', ...payload},
+    );
+    adminResources.putIfAbsent(path, () => []).add(value);
+    return value;
+  }
+
+  @override
+  Future<AdminContentRecord> updateAdminResource(
+    String path,
+    Map<String, Object?> payload,
+  ) async => AdminContentRecord(
+    path.split('/').last,
+    (payload['expected_version'] as int? ?? 0) + 1,
+    'draft',
+    payload,
+  );
+
+  @override
+  Future<AdminContentRecord> runAdminResourceAction(
+    String path, {
+    Map<String, Object?> payload = const {},
+  }) async {
+    adminActionPaths.add(path);
+    lastAdminActionPayload = payload;
+    final source = adminResources.values.expand((items) => items).firstOrNull;
+    return source ??
+        AdminContentRecord(
+          path.split('/').where((part) => part.isNotEmpty).last,
+          payload['expected_version'] as int? ?? 1,
+          path.endsWith('/publish') ? 'published' : 'draft',
+          {'id': 'preview', 'title': 'Preview', ...payload},
+        );
+  }
+
+  @override
+  Future<void> deleteAdminResource(String path, {String? confirmation}) async {}
+
+  @override
+  Future<List<AdminRevision>> loadAdminRevisions(String path) async =>
+      adminRevisions;
+
+  @override
+  Future<AdminImportReport> importAdminStudents(
+    AdminImportFile file, {
+    bool dryRun = true,
+  }) async {
+    lastImportDryRun = dryRun;
+    return adminImportReport;
+  }
+
+  @override
+  Future<Uint8List> exportAdminStudentAccounts(String format) async =>
+      Uint8List.fromList([80, 75]);
+
+  @override
+  Future<List<AdminAuditRecord>> loadAdminAudit({
+    int offset = 0,
+    int limit = 50,
+  }) async => adminAuditRecords;
+
   List<AdminChatItem> adminChats = [];
   List<AdminChatStudentSummary> adminChatStudents = [];
   final Map<String, List<AdminChatItem>> adminStudentChatDetails = {};
@@ -95,6 +360,9 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
 
   @override
   Future<void> login(String email, String password) async {}
+
+  @override
+  Future<void> verifyAdminLoginOtp(String challengeId, String otp) async {}
 
   @override
   Future<void> sendOtp(

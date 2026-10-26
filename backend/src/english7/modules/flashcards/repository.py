@@ -28,7 +28,7 @@ class FlashcardTransaction:
         self.session = session
 
     def decks(self, user_id: UUID):
-        return list(self.session.scalars(select(FlashcardDeck).where(or_(FlashcardDeck.owner_id == user_id, FlashcardDeck.kind == 'textbook')).order_by(FlashcardDeck.unit_number, FlashcardDeck.name)))
+        return list(self.session.scalars(select(FlashcardDeck).where(or_(FlashcardDeck.owner_id == user_id, (FlashcardDeck.kind == 'textbook') & FlashcardDeck.is_active.is_(True))).order_by(FlashcardDeck.unit_number, FlashcardDeck.name)))
 
     def deck(self, deck_id):
         return self.session.get(FlashcardDeck, deck_id)
@@ -37,7 +37,11 @@ class FlashcardTransaction:
         return self.session.get(Flashcard, card_id)
 
     def cards(self, deck_id):
-        return list(self.session.scalars(select(Flashcard).where(Flashcard.deck_id == deck_id).order_by(Flashcard.word)))
+        deck = self.deck(deck_id)
+        query = select(Flashcard).where(Flashcard.deck_id == deck_id)
+        if deck is not None and deck.kind == 'textbook':
+            query = query.where(Flashcard.is_published.is_(True))
+        return list(self.session.scalars(query.order_by(Flashcard.word)))
 
     def state(self, user_id, card_id, create=False):
         state = self.session.scalar(select(FlashcardState).where(FlashcardState.user_id == user_id, FlashcardState.card_id == card_id).with_for_update().with_hint(FlashcardState, 'WITH (UPDLOCK, HOLDLOCK)', dialect_name='mssql'))

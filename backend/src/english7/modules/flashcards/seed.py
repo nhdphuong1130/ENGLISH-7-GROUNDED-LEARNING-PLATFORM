@@ -22,7 +22,7 @@ def seed_textbook_flashcards(session_factory) -> int:
                 if any(card.normalized_word == word for card in tx.cards(deck.id)):
                     continue
                 example = vocabulary.example if normalize_word(vocabulary.example) in content else ''
-                tx.create_card(deck_id=deck.id, word=vocabulary.word, normalized_word=word, meaning=vocabulary.meaning_vi, ipa=vocabulary.ipa, pos=vocabulary.pos, example=example, notes='', source_fragment_id=fragment.id, unit_number=unit.number, page=fragment.printed_page)
+                tx.create_card(deck_id=deck.id, word=vocabulary.word, normalized_word=word, meaning=vocabulary.meaning_vi, ipa=vocabulary.ipa, pos=vocabulary.pos, example=example, notes='', source_fragment_id=fragment.id, unit_number=unit.number, page=fragment.printed_page, is_published=True)
                 count += 1
     return count
 

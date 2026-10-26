@@ -38,11 +38,92 @@ class _LoginScreenState extends State<LoginScreen> {
     try {
       await widget.api.login(_email.text, _password.text);
       widget.onAuthenticated();
+    } on AdminOtpRequired catch (challenge) {
+      if (mounted) await _showAdminOtpDialog(challenge);
     } catch (_) {
       if (mounted) setState(() => _error = 'Đăng nhập không thành công');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  Future<void> _showAdminOtpDialog(AdminOtpRequired challenge) async {
+    var otp = '';
+    String? error;
+    var verifying = false;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Xác thực OTP quản trị'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Mã xác thực đã được gửi đến ${challenge.maskedPhone}.'),
+              const SizedBox(height: 12),
+              TextField(
+                key: const Key('admin-otp-field'),
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                maxLength: 6,
+                onChanged: (value) => otp = value,
+                decoration: const InputDecoration(labelText: 'Mã OTP'),
+              ),
+              if (error != null)
+                Text(
+                  error!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: verifying
+                  ? null
+                  : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              key: const Key('verify-admin-otp-btn'),
+              onPressed: verifying
+                  ? null
+                  : () async {
+                      final value = otp.trim();
+                      if (!RegExp(r'^\d{6}$').hasMatch(value)) {
+                        setDialogState(
+                          () => error = 'Mã OTP phải gồm 6 chữ số',
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        verifying = true;
+                        error = null;
+                      });
+                      try {
+                        await widget.api.verifyAdminLoginOtp(
+                          challenge.challengeId,
+                          value,
+                        );
+                        if (!dialogContext.mounted) return;
+                        Navigator.of(dialogContext).pop();
+                        widget.onAuthenticated();
+                      } catch (_) {
+                        if (dialogContext.mounted) {
+                          setDialogState(() {
+                            verifying = false;
+                            error = 'Mã OTP không đúng hoặc đã hết hạn';
+                          });
+                        }
+                      }
+                    },
+              child: Text(verifying ? 'Đang xác thực…' : 'Xác thực'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -132,25 +213,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: const Text('Đăng ký ngay'),
                     ),
                   ],
-                ),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  key: const Key('fill-student-account-btn'),
-                  onPressed: () {
-                    _email.text = 'student@english7.edu.vn';
-                    _password.text = 'StudentPassword123!';
-                  },
-                  icon: const Icon(Icons.account_circle_outlined, size: 18),
-                  label: const Text('Điền tài khoản mẫu (Học sinh)'),
-                ),
-                TextButton.icon(
-                  key: const Key('fill-admin-account-btn'),
-                  onPressed: () {
-                    _email.text = 'admin@english7.edu.vn';
-                    _password.text = 'AdminPassword123!';
-                  },
-                  icon: const Icon(Icons.admin_panel_settings_outlined, size: 18),
-                  label: const Text('Điền tài khoản mẫu (Admin)'),
                 ),
               ],
             ),

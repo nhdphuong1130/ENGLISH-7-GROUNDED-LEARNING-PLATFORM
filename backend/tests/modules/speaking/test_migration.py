@@ -12,7 +12,9 @@ def test_frozen_learning_schema_matches_current_models():
     metadata = migration['schema']()
     for name in migration['TABLES']:
         frozen, model = metadata.tables[name], Base.metadata.tables[name]
-        assert set(frozen.c.keys()) == set(model.c.keys())
+        # Later additive migrations may add columns, but must never rewrite or
+        # invalidate the schema frozen in this historical revision.
+        assert set(frozen.c.keys()) <= set(model.c.keys())
         for column in frozen.c:
             actual = model.c[column.name]
             assert column.nullable == actual.nullable

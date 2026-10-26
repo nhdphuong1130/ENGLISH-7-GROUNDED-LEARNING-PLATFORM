@@ -39,7 +39,7 @@ class AuthService:
         )
         return self.repository.create(user)
 
-    def login(self, email: str, password: str) -> str:
+    def verify_credentials(self, email: str, password: str) -> AuthUser:
         clean = email.strip().lower()
         user = self.repository.get_by_email(clean)
         if user is None:
@@ -62,6 +62,12 @@ class AuthService:
                 message="Email or password is incorrect",
                 status_code=401,
             )
+        return user
+
+    def login(self, email: str, password: str) -> str:
+        return self.token_service.issue(self.verify_credentials(email, password))
+
+    def issue_token(self, user: AuthUser) -> str:
         return self.token_service.issue(user)
 
     @staticmethod

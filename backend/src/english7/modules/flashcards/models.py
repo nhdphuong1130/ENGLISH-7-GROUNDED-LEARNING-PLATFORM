@@ -16,6 +16,7 @@ class FlashcardDeck(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     kind: Mapped[str] = mapped_column(String(20), default='personal')
     unit_number: Mapped[int | None] = mapped_column(Integer)
     unit_id: Mapped[UUID | None] = mapped_column(ForeignKey('units.id'))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 class Flashcard(Base, UUIDPrimaryKeyMixin, TimestampMixin):
@@ -35,6 +36,7 @@ class Flashcard(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     unit_number: Mapped[int | None] = mapped_column(Integer)
     page: Mapped[int | None] = mapped_column(Integer)
     audio_url: Mapped[str | None] = mapped_column(Unicode(2048))
+    is_published: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
 
 class FlashcardState(Base, UUIDPrimaryKeyMixin):

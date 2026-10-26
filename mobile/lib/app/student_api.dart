@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'learning_api.dart';
+import 'admin_api.dart';
 
 enum TutorLanguage { vietnamese, english }
 
@@ -250,6 +251,13 @@ class TutorConversationFull implements Exception {
 
 class TutorConversationUnavailable implements Exception {
   const TutorConversationUnavailable();
+}
+
+class AdminOtpRequired implements Exception {
+  final String challengeId;
+  final String maskedPhone;
+
+  const AdminOtpRequired(this.challengeId, this.maskedPhone);
 }
 
 class QuizSetup {
@@ -527,7 +535,7 @@ class AdminChatItem {
   );
 }
 
-abstract interface class StudentApi implements LearningApi {
+abstract interface class StudentApi implements LearningApi, AdminApi {
   Future<StudentProgress> loadProgress();
   Future<AdminProgressOverview> loadAdminProgress();
   Future<List<AdminChatStudentSummary>> loadAdminChatStudents();
@@ -541,6 +549,7 @@ abstract interface class StudentApi implements LearningApi {
     String format,
   );
   Future<void> login(String email, String password);
+  Future<void> verifyAdminLoginOtp(String challengeId, String otp);
   Future<void> sendOtp(
     String phone, {
     String channel = 'sms',

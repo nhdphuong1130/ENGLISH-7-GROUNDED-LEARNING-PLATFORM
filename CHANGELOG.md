@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- OTP verification for administrator logins from new Android, iOS/PWA or web
+  devices, with hashed 30-day trusted-device records, attempt limits and an
+  authenticated revoke-all endpoint.
+- Responsive Android/Web/PWA administration shell with dashboard and complete
+  student account search, create, edit, password reset, lock, archive, restore
+  and confirmed hard-delete workflows.
+- Cross-platform administration screens for draft preview/publication/version
+  history, CSV/XLSX student import dry-runs and exports, and read-only audit logs.
+- Audited administration APIs for student lifecycle/import/export/dashboard,
+  versioned curriculum drafts, and grounded quiz, textbook flashcard and speaking
+  prompt publishing with preview, archive, restoration and safe deletion.
 - Installable Flutter Web PWA for iPhone Safari, including same-origin API
   access, Home Screen metadata, browser audio playback, microphone-based WAV
   speaking practice, network-safe application-shell caching, and repeatable

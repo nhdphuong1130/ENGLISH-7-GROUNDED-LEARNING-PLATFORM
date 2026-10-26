@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from english7.api.errors import ApplicationError
@@ -11,6 +11,9 @@ from english7.db.models import ReviewStatus
 from english7.modules.auth.domain import AuthUser
 from english7.modules.auth.router import get_current_user
 from english7.modules.auth.service import AuthService
+from english7.modules.auth.admin_device_service import AdminDeviceService
+from english7.modules.auth.router import get_admin_device_service
+from english7.modules.admin.dependencies import AdminUser, require_admin
 from english7.modules.speaking.router import VoiceRequest, get_speaking_service
 from english7.modules.speaking.service import MAX_AUDIO_BYTES, SpeakingService
 from english7.modules.textbooks.router import get_textbook_service
@@ -510,12 +513,45 @@ def get_admin_deck_cards(
     return {"items": [c.model_dump() for c in cards]}
 
 
-def require_admin(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
-    AuthService.authorize(user, {"admin"})
-    return user
+class AdminAuditEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    actor_id: UUID | None
+    action: str
+    entity_type: str
+    entity_id: UUID
+    event_data: dict[str, Any]
+    request_id: str | None
+    ip_address: str | None
+    platform: str | None
+    before_data: dict[str, Any] | None
+    after_data: dict[str, Any] | None
+    succeeded: bool
+    created_at: datetime
 
 
-AdminUser = Annotated[AuthUser, Depends(require_admin)]
+def get_admin_audit_service():
+    from english7.modules.admin.audit_service import AdminAuditService
+
+    return AdminAuditService(get_session_factory())
+
+
+@router.get("/audit-events")
+def get_admin_audit_events(
+    _admin: AdminUser,
+    _request: Request,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> dict[str, Any]:
+    service = get_admin_audit_service()
+    events = service.list_events(offset=offset, limit=limit)
+    return {
+        "items": [AdminAuditEventResponse.model_validate(event) for event in events],
+        "offset": offset,
+        "limit": limit,
+        "count": len(events),
+    }
 
 
 def get_admin_speaking_service(
@@ -527,6 +563,15 @@ def get_admin_speaking_service(
 
 
 SpeakingServiceDep = Annotated[SpeakingService, Depends(get_admin_speaking_service)]
+
+
+@router.post("/trusted-devices/revoke-all", status_code=204)
+def revoke_admin_trusted_devices(
+    admin: AdminUser,
+    service: Annotated[AdminDeviceService, Depends(get_admin_device_service)],
+) -> Response:
+    service.revoke_all(admin.id)
+    return Response(status_code=204)
 
 
 @router.get("/speaking/voices")
@@ -599,4 +644,15 @@ def get_admin_speaking_history(
     service: SpeakingServiceDep,
 ):
     return {"items": service.history(user.id)}
+
+
+from english7.modules.admin.students_router import router as students_router
+from english7.modules.admin.dashboard_router import router as dashboard_router
+from english7.modules.admin.content_router import router as content_router
+from english7.modules.admin.practice_router import router as practice_router
+
+router.include_router(students_router)
+router.include_router(dashboard_router)
+router.include_router(content_router)
+router.include_router(practice_router)
 

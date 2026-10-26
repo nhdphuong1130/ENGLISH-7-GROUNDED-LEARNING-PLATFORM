@@ -62,6 +62,46 @@ void main() {
         delay: (_) async {},
       );
 
+  test('completes admin device challenge with the same device id', () async {
+    final transport = ScriptedTransport()
+      ..responses.addAll([
+        jsonResponse(202, {
+          'challenge_id': 'challenge-1',
+          'masked_phone': '+84******251',
+          'expires_in_seconds': 300,
+        }),
+        jsonResponse(200, {
+          'access_token': 'admin-token',
+          'token_type': 'bearer',
+        }),
+      ]);
+    final tokens = MemoryTokens();
+    final api = buildApi(transport, tokens);
+
+    AdminOtpRequired? challenge;
+    try {
+      await api.login('admin@example.com', 'password');
+    } on AdminOtpRequired catch (error) {
+      challenge = error;
+    }
+    expect(challenge?.maskedPhone, '+84******251');
+    await api.verifyAdminLoginOtp(challenge!.challengeId, '123456');
+
+    final loginPayload = jsonDecode(
+      utf8.decode(transport.requests.first.body!),
+    ) as Map<String, dynamic>;
+    final verifyPayload = jsonDecode(
+      utf8.decode(transport.requests.last.body!),
+    ) as Map<String, dynamic>;
+    expect(
+      (loginPayload['device_id'] as String).length,
+      greaterThanOrEqualTo(16),
+    );
+    expect(verifyPayload['device_id'], loginPayload['device_id']);
+    expect(verifyPayload['otp'], '123456');
+    expect(tokens.token, 'admin-token');
+  });
+
   test('loads persisted progress with UTC submission dates', () async {
     final transport = ScriptedTransport()
       ..responses.add(
@@ -288,38 +328,41 @@ void main() {
     expect(session.audioTitle, 'Unit 5 Skills 2 (Track 37)');
   });
 
-  test('sendOtp sends phone number and channel to /api/v1/auth/otp/send', () async {
-    final transport = ScriptedTransport()
-      ..responses.addAll([
-        jsonResponse(200, {
-          'status': 'success',
-          'message': 'OTP sent via SMS',
-        }),
-        jsonResponse(200, {
-          'status': 'success',
-          'message': 'OTP sent via Voice',
-        }),
-      ]);
+  test(
+    'sendOtp sends phone number and channel to /api/v1/auth/otp/send',
+    () async {
+      final transport = ScriptedTransport()
+        ..responses.addAll([
+          jsonResponse(200, {
+            'status': 'success',
+            'message': 'OTP sent via SMS',
+          }),
+          jsonResponse(200, {
+            'status': 'success',
+            'message': 'OTP sent via Voice',
+          }),
+        ]);
 
-    final api = buildApi(transport, MemoryTokens());
-    await api.sendOtp('+84365218732');
-    await api.sendOtp('+84365218732', channel: 'voice');
+      final api = buildApi(transport, MemoryTokens());
+      await api.sendOtp('+84365218732');
+      await api.sendOtp('+84365218732', channel: 'voice');
 
-    expect(transport.requests.length, 2);
-    expect(transport.requests[0].uri.path, '/api/v1/auth/otp/send');
-    final payload1 = jsonDecode(
-      utf8.decode(transport.requests[0].body!),
-    ) as Map<String, dynamic>;
-    expect(payload1['phone'], '+84365218732');
-    expect(payload1['channel'], 'sms');
+      expect(transport.requests.length, 2);
+      expect(transport.requests[0].uri.path, '/api/v1/auth/otp/send');
+      final payload1 = jsonDecode(
+        utf8.decode(transport.requests[0].body!),
+      ) as Map<String, dynamic>;
+      expect(payload1['phone'], '+84365218732');
+      expect(payload1['channel'], 'sms');
 
-    expect(transport.requests[1].uri.path, '/api/v1/auth/otp/send');
-    final payload2 = jsonDecode(
-      utf8.decode(transport.requests[1].body!),
-    ) as Map<String, dynamic>;
-    expect(payload2['phone'], '+84365218732');
-    expect(payload2['channel'], 'voice');
-  });
+      expect(transport.requests[1].uri.path, '/api/v1/auth/otp/send');
+      final payload2 = jsonDecode(
+        utf8.decode(transport.requests[1].body!),
+      ) as Map<String, dynamic>;
+      expect(payload2['phone'], '+84365218732');
+      expect(payload2['channel'], 'voice');
+    },
+  );
 
   test('verifyOtp sends phone and otp, then saves access token', () async {
     final transport = ScriptedTransport()
@@ -362,7 +405,7 @@ void main() {
               'summary': 'Thì hiện tại đơn diễn tả thói quen.',
               'textbook_citation': 'SGK Tiếng Anh 7 Unit 1, Trang 11',
               'suggested_prompt': 'Giải thích thì hiện tại đơn',
-            }
+            },
           ],
         }),
       );
@@ -378,37 +421,43 @@ void main() {
     expect(analysis.gaps.first.conceptKey, 'grammar-u1');
     expect(analysis.gaps.first.conceptName, 'Present Simple Tense');
     expect(analysis.gaps.first.masteryScore, 0.45);
-    expect(analysis.gaps.first.textbookCitation, 'SGK Tiếng Anh 7 Unit 1, Trang 11');
+    expect(
+      analysis.gaps.first.textbookCitation,
+      'SGK Tiếng Anh 7 Unit 1, Trang 11',
+    );
   });
 
-  test('createRemedialQuiz posts concept_key and returns quiz session', () async {
-    final transport = ScriptedTransport()
-      ..responses.add(
-        jsonResponse(201, {
-          'id': 'remedial-quiz-1',
-          'duration_minutes': 15,
-          'difficulty': 'medium',
-          'question_count': 5,
-          'questions': [
-            {
-              'id': 'q1',
-              'prompt': 'Choose correct form',
-              'options': ['A', 'B'],
-            }
-          ],
-        }),
-      );
+  test(
+    'createRemedialQuiz posts concept_key and returns quiz session',
+    () async {
+      final transport = ScriptedTransport()
+        ..responses.add(
+          jsonResponse(201, {
+            'id': 'remedial-quiz-1',
+            'duration_minutes': 15,
+            'difficulty': 'medium',
+            'question_count': 5,
+            'questions': [
+              {
+                'id': 'q1',
+                'prompt': 'Choose correct form',
+                'options': ['A', 'B'],
+              },
+            ],
+          }),
+        );
 
-    final api = buildApi(transport, MemoryTokens());
-    final session = await api.createRemedialQuiz('grammar-u1');
+      final api = buildApi(transport, MemoryTokens());
+      final session = await api.createRemedialQuiz('grammar-u1');
 
-    expect(transport.requests.single.uri.path, '/api/v1/quizzes/remedial');
-    final payload = jsonDecode(
-      utf8.decode(transport.requests.single.body!),
-    ) as Map<String, dynamic>;
-    expect(payload['concept_key'], 'grammar-u1');
-    expect(session.id, 'remedial-quiz-1');
-    expect(session.questions.length, 1);
-    expect(session.questions.first.prompt, 'Choose correct form');
-  });
+      expect(transport.requests.single.uri.path, '/api/v1/quizzes/remedial');
+      final payload = jsonDecode(
+        utf8.decode(transport.requests.single.body!),
+      ) as Map<String, dynamic>;
+      expect(payload['concept_key'], 'grammar-u1');
+      expect(session.id, 'remedial-quiz-1');
+      expect(session.questions.length, 1);
+      expect(session.questions.first.prompt, 'Choose correct form');
+    },
+  );
 }
