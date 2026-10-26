@@ -261,5 +261,33 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(RegisterScreen), findsOneWidget);
     });
+
+    testWidgets('quick fill buttons populate student and admin credentials', (tester) async {
+      final api = FakeStudentApi();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LoginScreen(
+            api: api,
+            onAuthenticated: () {},
+          ),
+        ),
+      );
+
+      expect(find.byKey(const Key('fill-student-account-btn')), findsOneWidget);
+      expect(find.byKey(const Key('fill-admin-account-btn')), findsOneWidget);
+
+      // Tap student quick fill
+      await tester.tap(find.byKey(const Key('fill-student-account-btn')));
+      await tester.pump();
+      expect(find.text('student@english7.edu.vn'), findsOneWidget);
+      expect(find.text('StudentPassword123!'), findsOneWidget);
+
+      // Tap admin quick fill
+      await tester.tap(find.byKey(const Key('fill-admin-account-btn')));
+      await tester.pump();
+      expect(find.text('admin@english7.edu.vn'), findsOneWidget);
+      expect(find.text('AdminPassword123!'), findsOneWidget);
+    });
   });
 }

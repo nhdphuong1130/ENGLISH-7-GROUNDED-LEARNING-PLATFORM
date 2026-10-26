@@ -98,6 +98,20 @@ class ApiClient {
     return response.body;
   }
 
+  Future<Uint8List> downloadBytes(String path) async {
+    final token = await _tokens.read();
+    final response = await _transport.send(
+      TransportRequest('GET', _config.resolve(path), {
+        'Accept': '*/*',
+        if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+      }, null),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      _decodeResponse(response);
+    }
+    return response.body;
+  }
+
   Future<void> postNoContent(String path, Map<String, Object?> payload) async {
     final token = await _tokens.read();
     final response = await _transport.send(

@@ -109,6 +109,36 @@ def test_tutor_does_not_call_llm_without_grounded_context() -> None:
     assert provider.requests == []
 
 
+def test_greeting_without_textbook_context_uses_ai_as_a_social_turn() -> None:
+    provider = FakeProvider(
+        lambda request: AIResponse(
+            "Chào bạn! Hôm nay bạn muốn cùng mình học phần nào?",
+            request.language,
+            (),
+            ScopeStatus.SOCIAL,
+        )
+    )
+    retrieval = FakeRetrieval(GroundedContext((), ()))
+    service = TutorService(retrieval, provider)
+
+    answer = service.ask("xin chào", Language.VIETNAMESE)
+
+    assert answer.scope_status is ScopeStatus.SOCIAL
+    assert answer.citations == ()
+    assert "học phần nào" in answer.answer
+    assert provider.requests[0].social_turn is True
+    assert provider.requests[0].evidence == ()
+
+
+def test_unrelated_question_without_context_remains_out_of_scope() -> None:
+    provider = FakeProvider(lambda _: pytest.fail("provider must not be called"))
+    service = TutorService(FakeRetrieval(GroundedContext((), ())), provider)
+
+    answer = service.ask("Tell me about algebra", Language.ENGLISH)
+
+    assert answer.scope_status is ScopeStatus.OUT_OF_SCOPE
+
+
 def test_conversation_history_is_bounded_context_and_never_evidence() -> None:
     owner_id = uuid4()
     exchanges = tuple(

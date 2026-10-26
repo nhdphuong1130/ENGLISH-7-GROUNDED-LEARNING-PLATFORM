@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../api/api_error.dart';
 import '../../app/student_api.dart';
 import '../../widgets/source_citation.dart';
 import 'image_selector.dart';
@@ -477,6 +478,29 @@ class _TutorScreenState extends State<TutorScreen> {
           ),
         );
       }
+    } on ApiException catch (error) {
+      if (mounted) {
+        final message = switch ((_language, error.code)) {
+          (TutorLanguage.english, 'ai_provider_unavailable') =>
+            'The AI tutor is temporarily unavailable. Please try again.',
+          (TutorLanguage.english, 'image_processing_timeout') =>
+            'The image took too long to process. Please try again.',
+          (TutorLanguage.english, _) =>
+            'The request could not be completed. Please check the connection and try again.',
+          (TutorLanguage.vietnamese, 'ai_provider_unavailable') =>
+            'Gia sư AI đang tạm thời quá tải. Em hãy thử lại sau nhé.',
+          (TutorLanguage.vietnamese, 'image_processing_timeout') =>
+            'Ảnh xử lý quá lâu. Em hãy thử gửi lại ảnh nhé.',
+          (TutorLanguage.vietnamese, _) =>
+            'Chưa thể hoàn thành yêu cầu. Em hãy kiểm tra kết nối và thử lại.',
+        };
+        setState(() {
+          _messages.add(
+            _ChatMessage(isUser: false, text: message, isRefusal: true),
+          );
+        });
+        _scrollToBottom();
+      }
     } finally {
       if (mounted) {
         setState(() => _busy = false);
@@ -487,6 +511,84 @@ class _TutorScreenState extends State<TutorScreen> {
 
   Widget _buildTopBar(BuildContext context) {
     final theme = Theme.of(context);
+    final brand = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer,
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.auto_awesome,
+            size: 18,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'AI Tutor',
+              maxLines: 1,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              'Global Success 7',
+              maxLines: 1,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontSize: 11,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SegmentedButton<TutorLanguage>(
+          showSelectedIcon: false,
+          style: const ButtonStyle(
+            visualDensity: VisualDensity.compact,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          segments: const [
+            ButtonSegment(
+              value: TutorLanguage.vietnamese,
+              label: Text('Tiếng Việt', style: TextStyle(fontSize: 12)),
+            ),
+            ButtonSegment(
+              value: TutorLanguage.english,
+              label: Text('Tiếng Anh', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+          selected: {_language},
+          onSelectionChanged: (selection) =>
+              setState(() => _language = selection.first),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          key: const Key('tutor-history'),
+          icon: const Icon(Icons.history_rounded, size: 21),
+          tooltip: 'Lịch sử trò chuyện',
+          onPressed: _loadingHistory ? null : _showHistory,
+        ),
+        if (_messages.isNotEmpty || _conversationId != null)
+          IconButton(
+            key: const Key('new-tutor-conversation'),
+            icon: const Icon(Icons.add_comment_outlined, size: 20),
+            tooltip: 'Đoạn chat mới',
+            onPressed: _busy ? null : _resetChat,
+          ),
+      ],
+    );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
@@ -497,77 +599,22 @@ class _TutorScreenState extends State<TutorScreen> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.auto_awesome,
-              size: 18,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'AI Tutor',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
+      child: LayoutBuilder(
+        builder: (context, constraints) => constraints.maxWidth < 520
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Align(alignment: Alignment.centerLeft, child: brand),
+                  const SizedBox(height: 8),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: controls,
                   ),
-                ),
-                Text(
-                  'Global Success 7',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          SegmentedButton<TutorLanguage>(
-            showSelectedIcon: false,
-            style: const ButtonStyle(
-              visualDensity: VisualDensity.compact,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            segments: const [
-              ButtonSegment(
-                value: TutorLanguage.vietnamese,
-                label: Text('Tiếng Việt', style: TextStyle(fontSize: 12)),
-              ),
-              ButtonSegment(
-                value: TutorLanguage.english,
-                label: Text('Tiếng Anh', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-            selected: {_language},
-            onSelectionChanged: (selection) =>
-                setState(() => _language = selection.first),
-          ),
-          const SizedBox(width: 4),
-          IconButton(
-            key: const Key('tutor-history'),
-            icon: const Icon(Icons.history_rounded, size: 21),
-            tooltip: 'Lịch sử trò chuyện',
-            onPressed: _loadingHistory ? null : _showHistory,
-          ),
-          if (_messages.isNotEmpty || _conversationId != null)
-            IconButton(
-              key: const Key('new-tutor-conversation'),
-              icon: const Icon(Icons.add_comment_outlined, size: 20),
-              tooltip: 'Đoạn chat mới',
-              onPressed: _busy ? null : _resetChat,
-            ),
-        ],
+                ],
+              )
+            : Row(children: [brand, const Spacer(), controls]),
       ),
     );
   }

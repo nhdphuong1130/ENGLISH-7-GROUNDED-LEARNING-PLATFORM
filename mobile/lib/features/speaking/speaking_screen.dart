@@ -146,7 +146,7 @@ class _SpeakingScreenState extends State<SpeakingScreen> {
 
     if (bytes.isNotEmpty) {
       _requestId ??= learningRequestId();
-      _submittedVoice ??= _voice;
+      _submittedVoice ??= _voice ?? 'en-GB-SoniaNeural';
       final result = await widget.api.submitSpeaking(
         requestId: _requestId!,
         cardId: widget.card.id,

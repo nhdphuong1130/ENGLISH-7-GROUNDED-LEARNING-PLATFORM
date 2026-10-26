@@ -21,6 +21,7 @@ class Language(StrEnum):
 class ScopeStatus(StrEnum):
     GROUNDED = "grounded"
     OUT_OF_SCOPE = "out_of_scope"
+    SOCIAL = "social"
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +45,7 @@ class AIRequest:
     evidence: tuple[Evidence, ...]
     history: tuple[ConversationTurn, ...] = ()
     addressing_preference: str | None = None
+    social_turn: bool = False
 
 
 @dataclass(frozen=True, slots=True)

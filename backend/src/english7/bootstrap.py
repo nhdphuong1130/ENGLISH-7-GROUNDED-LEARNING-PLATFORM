@@ -510,6 +510,7 @@ def configure_runtime(
         model=settings.openrouter_model,
         timeout_seconds=settings.openrouter_timeout_seconds,
     )
+    app.state.pronunciation_provider = provider
     app.state.tutor_service = TutorService(
         retrieval,
         provider,

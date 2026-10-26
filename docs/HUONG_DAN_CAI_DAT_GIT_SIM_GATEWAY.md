@@ -182,7 +182,27 @@ Nếu điện thoại đổi IP sau khi kết nối lại Wi-Fi, cập nhật UR
 khởi động lại container `api`. Có thể đặt DHCP reservation trên router để IP
 điện thoại ổn định hơn.
 
-## 8. Khởi động hệ thống thủ công
+## 8. Kết nối EC2 qua tunnel HTTPS công khai
+
+EC2 không thể truy cập `127.0.0.1` hoặc IP Wi-Fi riêng của điện thoại.
+Trên điện thoại, dùng Termux và Cloudflare Tunnel để chuyển tiếp HTTPS
+tới Local Server của SMS Gateway:
+
+```bash
+pkg update
+pkg install cloudflared
+cloudflared tunnel --url http://127.0.0.1:8080
+```
+
+Cloudflared sẽ hiển thị một URL `https://...trycloudflare.com`. Cập nhật URL
+đó trên server, giữ nguyên Username/Password Basic Auth đang cấu hình trong
+SMS Gateway, rồi khởi động lại API.
+
+Quick Tunnel đổi URL sau mỗi lần chạy. Triển khai lâu dài nên dùng
+Named Tunnel với hostname cố định. Không công khai trực tiếp cổng HTTP
+`8080` và không tắt Basic Auth.
+
+## 9. Khởi động hệ thống thủ công
 
 Nếu không dùng `make run`, thực hiện:
 
@@ -196,7 +216,7 @@ flutter run
 Khi chạy Flutter trên điện thoại thật, cần bảo đảm thiết bị truy cập được API.
 `make run` đã tự cấu hình cầu nối ADB, nên đây là cách đơn giản hơn khi demo.
 
-## 9. Kiểm tra gửi OTP
+## 10. Kiểm tra gửi OTP
 
 1. Mở màn hình đăng ký hoặc quên mật khẩu trên ứng dụng Flutter.
 2. Nhập số điện thoại nhận, ví dụ `09xxxxxxxx`.
@@ -217,7 +237,7 @@ docker compose logs -f api
 Chỉ dùng log để chẩn đoán trong môi trường phát triển; không chia sẻ log có số
 điện thoại hoặc OTP.
 
-## 10. Xử lý lỗi thường gặp
+## 11. Xử lý lỗi thường gặp
 
 | Hiện tượng | Nguyên nhân thường gặp | Cách xử lý |
 |---|---|---|
@@ -231,7 +251,7 @@ Chỉ dùng log để chẩn đoán trong môi trường phát triển; không c
 | Gateway nhận yêu cầu nhưng SMS không đi | Thiếu quyền SMS, SIM hết tiền hoặc mất sóng | Cấp lại quyền, kiểm tra SIM, sóng và cước nhà mạng |
 | Gửi nhầm SIM trên máy hai SIM | Chưa chọn SIM mặc định | Chọn SIM gửi SMS mặc định trong Android/Gateway |
 
-## 11. Dừng hệ thống
+## 12. Dừng hệ thống
 
 Nhấn `q` để dừng phiên `flutter run`, sau đó:
 
@@ -242,7 +262,7 @@ make down
 Nếu không còn sử dụng USB debugging, có thể tắt tùy chọn này trên điện thoại để
 giảm rủi ro bảo mật.
 
-## 12. Tài liệu tham khảo
+## 13. Tài liệu tham khảo
 
 - [SMS Gateway for Android — mã nguồn và bản phát hành](https://github.com/capcom6/android-sms-gateway)
 - [Hướng dẫn Local Server chính thức](https://docs.sms-gate.app/getting-started/local-server/)

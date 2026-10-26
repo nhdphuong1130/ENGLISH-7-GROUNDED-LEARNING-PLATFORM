@@ -85,13 +85,13 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
     });
 
     try {
-      final futures = await Future.wait([
-        widget.api.loadCards(widget.deck.id),
-        widget.api.loadVoices(),
-      ]);
-
-      final cards = futures[0] as List<Flashcard>;
-      final voices = futures[1] as SpeakingVoices;
+      final cards = await widget.api.loadCards(widget.deck.id);
+      SpeakingVoices? voices;
+      try {
+        voices = await widget.api.loadVoices();
+      } catch (_) {
+        // Voices runtime might be offline or unreachable
+      }
 
       final items = cards.map((c) {
         final text = widget.isSentenceMode
@@ -105,9 +105,10 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
       if (mounted) {
         setState(() {
           _items = items;
-          _voice = voices.items.any((v) => v.id == voices.selectedVoice)
-              ? voices.selectedVoice
-              : voices.items.firstOrNull?.id;
+          final availableVoices = voices?.items ?? [];
+          _voice = availableVoices.any((v) => v.id == voices?.selectedVoice)
+              ? voices?.selectedVoice
+              : (availableVoices.firstOrNull?.id ?? 'en-GB-SoniaNeural');
           _loadingCards = false;
         });
       }
@@ -255,7 +256,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
     });
 
     _requestId ??= learningRequestId();
-    final voiceId = _voice ?? 'alloy';
+    final voiceId = _voice ?? 'en-GB-SoniaNeural';
 
     try {
       final res = await widget.api.submitSpeaking(

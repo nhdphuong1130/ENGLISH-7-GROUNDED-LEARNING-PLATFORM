@@ -52,9 +52,11 @@ def learning(tmp_path):
     runtime = Runtime()
     audio_cache = VocabAudioCache(tmp_path / 'vocab_audio', runtime=runtime)
     cards = FlashcardService(SQLAlchemyFlashcardRepository(factory), audio_cache=audio_cache)
+    from english7.modules.admin.router import get_admin_speaking_service
     speech = SpeakingService(SpeakingRepository(factory), cards, runtime)
     app.dependency_overrides[get_flashcard_service] = lambda: cards
     app.dependency_overrides[get_speaking_service] = lambda: speech
+    app.dependency_overrides[get_admin_speaking_service] = lambda: speech
     app.dependency_overrides[get_current_user] = lambda: user
     yield runtime
     app.dependency_overrides.clear()
@@ -105,6 +107,43 @@ def test_admin_cannot_access_student_learning(client, learning):
         email='admin@example.com', password_hash='x', role='admin')
     for path in ['/flashcards/decks', '/learning/progress', '/speaking/voices', '/speaking/history']:
         assert client.get('/api/v1' + path).status_code == 403
+    assert client.get('/api/v1/admin/speaking/voices').status_code == 200
+    assert client.get('/api/v1/admin/speaking/history').status_code == 200
+
+
+def test_admin_can_use_speaking_practice(client, learning):
+    from unittest.mock import MagicMock
+    from english7.modules.flashcards.domain import Card
+
+    admin = AuthUser.new(email='admin@example.com', password_hash='x', role='admin')
+    app.dependency_overrides[get_current_user] = lambda: admin
+
+    card_id = uuid4()
+    cards_service = app.dependency_overrides[get_flashcard_service]()
+    cards_service.get_card = MagicMock(return_value=Card(
+        id=card_id, deck_id=uuid4(), word='reading', meaning='đọc sách',
+        example='He likes reading books.', source_label='[Unit 1, Page 10]'
+    ))
+
+    # 1. Preview
+    res_prev = client.post('/api/v1/admin/speaking/preview', json={'voice_id': 'test-voice'})
+    assert res_prev.status_code == 200
+    assert res_prev.content == b'RIFF-test'
+
+    # 2. Select voice
+    res_set = client.put('/api/v1/admin/speaking/voice', json={'voice_id': 'test-voice'})
+    assert res_set.status_code == 200
+
+    # 3. Submit speaking attempt
+    request_id = uuid4()
+    url = f'/api/v1/admin/speaking/attempts/{request_id}?card_id={card_id}&voice_id=test-voice'
+    result = client.post(url, files={'audio': ('recording.wav', b'recording', 'audio/wav')})
+    assert result.status_code == 200
+    assert result.json()['transcript'] == 'reading'
+
+    # 4. Audio feedback
+    audio = client.post(f'/api/v1/admin/speaking/attempts/{request_id}/audio')
+    assert audio.content == b'RIFF-test'
 
 
 def test_oversized_speech_rejected_before_auth_and_multipart_parsing(client, monkeypatch):

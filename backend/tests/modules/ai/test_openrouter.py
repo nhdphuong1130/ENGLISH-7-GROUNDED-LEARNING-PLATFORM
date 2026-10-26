@@ -79,6 +79,30 @@ def test_provider_uses_configured_model_timeout_and_structured_output() -> None:
     assert result.scope_status is ScopeStatus.GROUNDED
 
 
+def test_provider_generates_ipa_for_personal_learning_content() -> None:
+    http = FakeHTTP(
+        {
+            "choices": [
+                {"message": {"content": '{"ipa":"/ˈbenɪfɪt/"}'}}
+            ]
+        }
+    )
+    provider = OpenRouterProvider(
+        http=http,
+        api_key=SecretStr("secret"),
+        endpoint="https://openrouter.example/api/v1/chat/completions",
+        model="configured/model",
+        timeout_seconds=10,
+    )
+
+    ipa = provider.pronounce("benefit")
+
+    assert ipa == "/ˈbenɪfɪt/"
+    payload = http.call[2]
+    assert payload["response_format"] == {"type": "json_object"}
+    assert "benefit" in payload["messages"][1]["content"]
+
+
 def test_tutor_prompt_separates_history_from_verified_evidence() -> None:
     req = request()
     conversational = AIRequest(
@@ -111,6 +135,32 @@ def test_tutor_prompt_separates_history_from_verified_evidence() -> None:
         req.evidence[0].fragment_id
     )
     assert user["addressing_preference"] == "Speak as a friendly classmate."
+
+
+def test_tutor_prompt_requires_the_entire_answer_in_selected_language() -> None:
+    messages = OpenRouterProvider._messages(request())
+
+    system = messages[0]["content"].lower()
+    assert "entire answer" in system
+    assert "requested language" in system
+
+
+def test_social_turn_prompt_allows_natural_reply_without_textbook_citations() -> None:
+    messages = OpenRouterProvider._messages(
+        AIRequest(
+            question="xin chào",
+            language=Language.VIETNAMESE,
+            evidence=(),
+            social_turn=True,
+        )
+    )
+
+    system = messages[0]["content"].lower()
+    user = __import__("json").loads(messages[1]["content"])
+    assert "social" in system
+    assert "no textbook citations" in system
+    assert "if social_turn is true" in system
+    assert user["social_turn"] is True
 
 
 def test_provider_parses_out_of_scope_response() -> None:

@@ -53,6 +53,53 @@ def test_private_crud_duplicate_and_move(setup):
         service.get_card(owner, card.id)
 
 
+def test_personal_card_automatically_receives_ai_pronunciation(setup):
+    from english7.modules.flashcards.service import FlashcardService
+
+    class Pronouncer:
+        def __init__(self):
+            self.words = []
+
+        def pronounce(self, text):
+            self.words.append(text)
+            return "/həˈloʊ/"
+
+    existing, (owner, _), now, _ = setup
+    pronouncer = Pronouncer()
+    service = FlashcardService(
+        existing.repository,
+        clock=lambda: now[0],
+        pronunciation_provider=pronouncer,
+    )
+    deck = service.create_deck(owner, "Personal")
+
+    card = service.create_card(owner, deck.id, word="hello", meaning="xin chào")
+
+    assert card.ipa == "/həˈloʊ/"
+    assert pronouncer.words == ["hello"]
+
+
+def test_editing_personal_card_word_refreshes_ai_pronunciation(setup):
+    from english7.modules.flashcards.service import FlashcardService
+
+    class Pronouncer:
+        def pronounce(self, text):
+            return {"hello": "/həˈloʊ/", "benefit": "/ˈbenɪfɪt/"}[text]
+
+    existing, (owner, _), now, _ = setup
+    service = FlashcardService(
+        existing.repository,
+        clock=lambda: now[0],
+        pronunciation_provider=Pronouncer(),
+    )
+    deck = service.create_deck(owner, "Personal")
+    card = service.create_card(owner, deck.id, word="hello", meaning="xin chào")
+
+    updated = service.update_card(owner, card.id, word="benefit")
+
+    assert updated.ipa == "/ˈbenɪfɪt/"
+
+
 def test_review_recall_schedule_and_idempotency(setup):
     service, (owner, _), now, _ = setup
     deck = service.create_deck(owner, 'Words')

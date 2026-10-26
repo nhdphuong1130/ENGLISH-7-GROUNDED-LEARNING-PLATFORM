@@ -3,8 +3,10 @@ from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 from uuid import UUID
+from typing import Protocol
 
 from english7.api.errors import ApplicationError
+from english7.modules.ai.contracts import AIProviderError
 from english7.modules.flashcards.domain import Card, Deck, ReviewResult, normalize_word
 
 
@@ -12,11 +14,34 @@ def utc(value: datetime) -> datetime:
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
 
 
+class PronunciationProvider(Protocol):
+    def pronounce(self, text: str) -> str: ...
+
+
 class FlashcardService:
-    def __init__(self, repository, clock: Callable[[], datetime] | None = None, audio_cache=None):
+    def __init__(
+        self,
+        repository,
+        clock: Callable[[], datetime] | None = None,
+        audio_cache=None,
+        pronunciation_provider: PronunciationProvider | None = None,
+    ):
         self.repository = repository
         self.clock = clock or (lambda: datetime.now(timezone.utc))
         self.audio_cache = audio_cache
+        self.pronunciation_provider = pronunciation_provider
+
+    def _pronunciation(self, word: str) -> str | None:
+        if self.pronunciation_provider is None:
+            return None
+        try:
+            return self.pronunciation_provider.pronounce(word)
+        except AIProviderError:
+            raise ApplicationError(
+                "pronunciation_unavailable",
+                "Không thể tạo phiên âm lúc này. Vui lòng thử lại.",
+                503,
+            ) from None
 
     def card_audio(self, user_id: UUID, card_id: UUID) -> bytes:
         card = self.get_card(user_id, card_id)
@@ -94,9 +119,11 @@ class FlashcardService:
             return [self._card_view(tx, user_id, card) for card in tx.cards(deck_id)]
 
     def create_card(self, user_id, deck_id, *, word, meaning, example='', notes='', image_url=None, source_card_id=None):
+        values = self._content(dict(word=word, meaning=meaning, example=example, notes=notes, image_url=image_url))
+        if source_card_id is None:
+            values['ipa'] = self._pronunciation(values['word'])
         with self.repository.transaction() as tx:
             self._deck(tx, user_id, deck_id, True)
-            values = self._content(dict(word=word, meaning=meaning, example=example, notes=notes, image_url=image_url))
             self._duplicate(tx, deck_id, values['word'])
             if source_card_id:
                 source = self._card(tx, user_id, source_card_id)
@@ -120,6 +147,9 @@ class FlashcardService:
         if set(values) - {'word', 'meaning', 'example', 'notes', 'image_url', 'deck_id'}:
             raise ApplicationError('invalid_flashcard', 'Unsupported card fields', 422)
         values = self._content(values)
+        generated_ipa = (
+            self._pronunciation(values['word']) if 'word' in values else None
+        )
         with self.repository.transaction() as tx:
             card = self._card(tx, user_id, card_id, True)
             target = values.get('deck_id', card.deck_id)
@@ -135,6 +165,8 @@ class FlashcardService:
                     state.successful_reviews = 0
             for field, value in values.items():
                 setattr(card, field, value)
+            if 'word' in values:
+                card.ipa = generated_ipa
             card.normalized_word = normalize_word(card.word)
             return self._card_view(tx, user_id, card)
 

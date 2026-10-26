@@ -84,6 +84,26 @@ def test_send_otp_android_gateway_success(mock_urlopen: MagicMock) -> None:
     assert mock_urlopen.called
 
 
+@patch("urllib.request.urlopen", side_effect=OSError("tunnel offline"))
+def test_configured_android_gateway_failure_does_not_fake_success(
+    mock_urlopen: MagicMock,
+) -> None:
+    service = SmsOtpService(
+        account_sid="",
+        auth_token=None,
+        from_phone="",
+        gateway_url="https://sms-gateway.example.com",
+        gateway_username="sms",
+        gateway_password="pwd",
+    )
+
+    with pytest.raises(ApplicationError) as exc_info:
+        service.send_otp("+84365218732")
+
+    assert exc_info.value.code == "sms_gateway_unavailable"
+    assert exc_info.value.status_code == 503
+
+
 def test_send_otp_voice_not_configured_raises() -> None:
     service = SmsOtpService(
         account_sid="test_sid",

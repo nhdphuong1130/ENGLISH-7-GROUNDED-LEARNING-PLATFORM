@@ -1,7 +1,7 @@
 from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, ConfigDict, Field
 
 from english7.api.errors import ApplicationError
@@ -22,7 +22,7 @@ def require_student(user: Annotated[AuthUser, Depends(get_current_user)]) -> Aut
     return user
 
 
-def get_flashcard_service() -> FlashcardService:
+def get_flashcard_service(request: Request) -> FlashcardService:
     from pathlib import Path
     from english7.core.settings import get_settings
     from english7.modules.flashcards.audio_cache import VocabAudioCache
@@ -34,7 +34,13 @@ def get_flashcard_service() -> FlashcardService:
         cache_dir=cache_dir,
         runtime=LocalSpeechRuntime(settings.speech_runtime_url, settings.speech_timeout_seconds),
     )
-    return FlashcardService(SQLAlchemyFlashcardRepository(get_session_factory()), audio_cache=audio_cache)
+    return FlashcardService(
+        SQLAlchemyFlashcardRepository(get_session_factory()),
+        audio_cache=audio_cache,
+        pronunciation_provider=getattr(
+            request.app.state, "pronunciation_provider", None
+        ),
+    )
 
 
 Student = Annotated[AuthUser, Depends(require_student)]

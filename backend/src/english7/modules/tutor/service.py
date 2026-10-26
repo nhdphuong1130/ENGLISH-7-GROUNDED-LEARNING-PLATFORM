@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import re
 from typing import Protocol
+import unicodedata
 from uuid import UUID
 
 from english7.api.errors import ApplicationError
@@ -127,6 +129,36 @@ class TutorService:
             "exercises."
         )
 
+    @staticmethod
+    def _is_social_turn(question: str) -> bool:
+        normalized = unicodedata.normalize("NFKD", question.casefold())
+        normalized = "".join(
+            character
+            for character in normalized
+            if not unicodedata.combining(character)
+        )
+        normalized = re.sub(r"[^a-z0-9 ]+", " ", normalized)
+        normalized = " ".join(normalized.split())
+        return normalized in {
+            "hi",
+            "hello",
+            "hey",
+            "good morning",
+            "good afternoon",
+            "good evening",
+            "thanks",
+            "thank you",
+            "bye",
+            "goodbye",
+            "xin chao",
+            "chao",
+            "chao ban",
+            "cam on",
+            "cam on ban",
+            "tam biet",
+            "chao tam biet",
+        }
+
     def ask(
         self,
         question: str,
@@ -205,6 +237,54 @@ class TutorService:
 
         context = self._retrieval.retrieve(query)
         if not context.fragments:
+            if upload_id is None and self._is_social_turn(question):
+                try:
+                    generated = self._provider.generate(
+                        AIRequest(
+                            query,
+                            language,
+                            (),
+                            history=tuple(
+                                ConversationTurn(item.question, item.answer)
+                                for item in history
+                            ),
+                            addressing_preference=(
+                                conversation.addressing_preference
+                                if conversation
+                                else None
+                            ),
+                            social_turn=True,
+                        )
+                    )
+                except AIProviderError:
+                    raise ApplicationError(
+                        "ai_provider_unavailable",
+                        "The AI tutor is temporarily unavailable. Please try again.",
+                        503,
+                    ) from None
+                if (
+                    generated.language != language
+                    or generated.scope_status is not ScopeStatus.SOCIAL
+                    or not generated.answer
+                    or generated.citations
+                ):
+                    raise ApplicationError(
+                        "invalid_ai_response", "AI response validation failed", 502
+                    )
+                result = TutorAnswer(
+                    generated.answer,
+                    generated.language,
+                    (),
+                    ScopeStatus.SOCIAL,
+                    conversation_id,
+                )
+                self._persist_answer(
+                    result,
+                    user_id=user_id,
+                    question=question,
+                    upload_id=upload_id,
+                )
+                return result
             result = TutorAnswer(
                 self._out_of_scope(language),
                 language,

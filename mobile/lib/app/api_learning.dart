@@ -20,7 +20,8 @@ mixin ApiLearning on Object implements LearningApi {
     try {
       final response = await learningClient.getJson('/api/v1/flashcards/decks');
       return _items(response.body, FlashcardDeck.fromJson);
-    } catch (_) {
+    } on ApiException catch (error) {
+      if (error.statusCode != 403) rethrow;
       final adminResponse = await learningClient.getJson('/api/v1/admin/decks');
       return _items(adminResponse.body, FlashcardDeck.fromJson);
     }
@@ -53,7 +54,8 @@ mixin ApiLearning on Object implements LearningApi {
         '/api/v1/flashcards/decks/$deckId/cards',
       );
       return _items(response.body, Flashcard.fromJson);
-    } catch (_) {
+    } on ApiException catch (error) {
+      if (error.statusCode != 403) rethrow;
       final adminResponse = await learningClient.getJson(
         '/api/v1/admin/decks/$deckId/cards',
       );

@@ -45,7 +45,12 @@ class SmsOtpService:
         expire_at = time.time() + self.ttl_seconds
         self._store[target_phone] = (code, expire_at)
 
-        logger.info(f"Generated OTP {code} for phone {target_phone} via channel '{channel}' (expires in {self.ttl_seconds}s)")
+        logger.info(
+            "Generated an OTP for a masked phone via channel '%s' "
+            "(expires in %ss)",
+            channel,
+            self.ttl_seconds,
+        )
 
         # 1. Voice Call Channel (ClickSend Voice API)
         if channel == "voice":
@@ -142,6 +147,17 @@ class SmsOtpService:
                 except Exception as e:
                     logger.debug(f"Android Gateway candidate {base_url} failed: {e}")
 
+            if not self.auth_token:
+                self._store.pop(target_phone, None)
+                raise ApplicationError(
+                    code="sms_gateway_unavailable",
+                    message=(
+                        "Không thể kết nối tới điện thoại gửi SMS. "
+                        "Hãy kiểm tra SMS Gateway và tunnel HTTPS."
+                    ),
+                    status_code=503,
+                )
+
         # 3. Secondary SMS: Twilio REST API
         if self.auth_token:
             url = f"https://api.twilio.com/2010-04-01/Accounts/{self.account_sid}/Messages.json"
@@ -180,9 +196,7 @@ class SmsOtpService:
                 ) from e
 
         # 4. Fallback: Dev Mode
-        logger.warning(
-            f"[DEV MODE] SMS Gateway/Twilio not configured. OTP for {target_phone} is: {code}"
-        )
+        logger.warning("[DEV MODE] SMS provider is not configured")
         return f"Mã OTP đã được tạo (Dev mode): {code}"
 
     def check_otp(self, phone: str, otp: str) -> bool:
