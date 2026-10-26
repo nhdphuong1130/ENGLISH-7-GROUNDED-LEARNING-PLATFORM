@@ -134,87 +134,97 @@ class _LoginScreenState extends State<LoginScreen> {
           padding: const EdgeInsets.all(24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Icon(
-                  Icons.school,
-                  size: 72,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'English 7',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 24),
-                TextField(
-                  key: const Key('email-field'),
-                  controller: _email,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email hoặc Số điện thoại',
+            child: AutofillGroup(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Icon(
+                    Icons.school,
+                    size: 72,
+                    color: Theme.of(context).colorScheme.primary,
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  key: const Key('password-field'),
-                  controller: _password,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Mật khẩu'),
-                ),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    key: const Key('forgot-password-btn'),
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => ForgotPasswordScreen(api: widget.api),
-                        ),
-                      );
-                    },
-                    child: const Text('Quên mật khẩu?'),
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 16),
                   Text(
-                    _error!,
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
+                    'English 7',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.headlineMedium,
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    key: const Key('email-field'),
+                    controller: _email,
+                    keyboardType: TextInputType.emailAddress,
+                    autofillHints: const [AutofillHints.username],
+                    textInputAction: TextInputAction.next,
+                    decoration: const InputDecoration(
+                      labelText: 'Email hoặc Số điện thoại',
                     ),
                   ),
-                ],
-                const SizedBox(height: 12),
-                FilledButton(
-                  onPressed: _busy ? null : _login,
-                  child: Text(_busy ? 'Đang đăng nhập…' : 'Đăng nhập'),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  alignment: WrapAlignment.center,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    const Text('Chưa có tài khoản?'),
-                    TextButton(
-                      key: const Key('open-register-btn'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    key: const Key('password-field'),
+                    controller: _password,
+                    obscureText: true,
+                    autofillHints: const [AutofillHints.password],
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      if (!_busy) _login();
+                    },
+                    decoration: const InputDecoration(labelText: 'Mật khẩu'),
+                  ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      key: const Key('forgot-password-btn'),
                       onPressed: () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => RegisterScreen(
-                              api: widget.api,
-                              onAuthenticated: widget.onAuthenticated,
-                            ),
+                            builder: (_) =>
+                                ForgotPasswordScreen(api: widget.api),
                           ),
                         );
                       },
-                      child: const Text('Đăng ký ngay'),
+                      child: const Text('Quên mật khẩu?'),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
                     ),
                   ],
-                ),
-              ],
+                  const SizedBox(height: 12),
+                  FilledButton(
+                    onPressed: _busy ? null : _login,
+                    child: Text(_busy ? 'Đang đăng nhập…' : 'Đăng nhập'),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      const Text('Chưa có tài khoản?'),
+                      TextButton(
+                        key: const Key('open-register-btn'),
+                        onPressed: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => RegisterScreen(
+                                api: widget.api,
+                                onAuthenticated: widget.onAuthenticated,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('Đăng ký ngay'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),
