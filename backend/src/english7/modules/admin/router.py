@@ -11,6 +11,7 @@ from english7.db.models import ReviewStatus
 from english7.modules.auth.domain import AuthUser
 from english7.modules.auth.router import get_current_user
 from english7.modules.auth.service import AuthService
+from english7.modules.admin.dependencies import AdminUser, require_admin
 from english7.modules.speaking.router import VoiceRequest, get_speaking_service
 from english7.modules.speaking.service import MAX_AUDIO_BYTES, SpeakingService
 from english7.modules.textbooks.router import get_textbook_service
@@ -510,14 +511,6 @@ def get_admin_deck_cards(
     return {"items": [c.model_dump() for c in cards]}
 
 
-def require_admin(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
-    AuthService.authorize(user, {"admin"})
-    return user
-
-
-AdminUser = Annotated[AuthUser, Depends(require_admin)]
-
-
 class AdminAuditEventResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -640,4 +633,9 @@ def get_admin_speaking_history(
     service: SpeakingServiceDep,
 ):
     return {"items": service.history(user.id)}
+
+
+from english7.modules.admin.students_router import router as students_router
+
+router.include_router(students_router)
 
