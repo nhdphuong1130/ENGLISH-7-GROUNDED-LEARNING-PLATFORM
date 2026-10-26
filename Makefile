@@ -13,7 +13,7 @@ SQLCMD := /opt/mssql-tools18/bin/sqlcmd -S localhost -U $(DB_USER) -P "$(DB_PASS
 UV := $(shell which uv 2>/dev/null || echo $(HOME)/.local/bin/uv)
 FLUTTER := $(shell which flutter 2>/dev/null || echo $(HOME)/.local/opt/flutter/bin/flutter)
 
-.PHONY: help run up up-full down ps logs restart backup-db restore test test-launcher test-backend test-mobile analyze seed clean migrate seed-flashcards speech-setup speech-up speech-down test-speech test-learning-live
+.PHONY: help run up up-full down ps logs restart backup-db restore test test-launcher test-backend test-mobile test-pwa build-pwa analyze seed clean migrate seed-flashcards speech-setup speech-up speech-down test-speech test-learning-live
 
 help:
 	@echo "English 7 Grounded Learning Platform - Lệnh quản trị & phát triển"
@@ -39,6 +39,8 @@ help:
 	@echo "  make test-backend  Chạy bộ kiểm thử backend pytest"
 	@echo "  make test-mobile   Chạy bộ kiểm thử mobile Flutter test"
 	@echo "  make analyze       Chạy phân tích tĩnh Flutter analyze"
+	@echo "  make test-pwa      Kiểm tra manifest và cấu hình PWA"
+	@echo "  make build-pwa     Build Flutter Web để chạy tại /app/"
 	@echo "  make test-speech   Kiểm thử runtime giọng nói (cần môi trường speech)"
 	@echo "  make test-learning-live  Kiểm tra SQL Server, tự rollback dữ liệu kiểm thử"
 	@echo ""
@@ -100,6 +102,15 @@ test-backend:
 
 test-mobile:
 	cd mobile && $(FLUTTER) test
+
+test-pwa:
+	python3 scripts/test_pwa_assets.py
+
+build-pwa: test-pwa
+	cd mobile && $(FLUTTER) build web --release --base-href /app/ --web-content-hash \
+		--dart-define=API_BASE_URL=https://13.229.72.146.sslip.io \
+		--dart-define=IMAGE_POLL_INTERVAL_MS=1000 \
+		--dart-define=IMAGE_POLL_MAX_ATTEMPTS=30
 
 analyze:
 	cd mobile && $(FLUTTER) analyze

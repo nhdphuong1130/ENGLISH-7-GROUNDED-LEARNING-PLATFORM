@@ -1,0 +1,37 @@
+{
+    "name": "English 7 Global Success",
+    "short_name": "English 7",
+    "id": "/app/",
+    "start_url": "/app/",
+    "scope": "/app/",
+    "display": "standalone",
+    "background_color": "#f8f8ff",
+    "theme_color": "#526aa3",
+    "description": "Nền tảng học Tiếng Anh 7 Global Success cùng gia sư AI.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
