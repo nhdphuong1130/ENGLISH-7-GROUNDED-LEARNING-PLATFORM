@@ -9,6 +9,12 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class LauncherTests(unittest.TestCase):
+    def test_vision_image_installs_paddle_openmp_runtime(self):
+        dockerfile = (ROOT / "backend/Dockerfile").read_text(encoding="utf-8")
+        vision_stage = dockerfile.split("FROM base AS vision", maxsplit=1)[1]
+
+        self.assertIn("libgomp1", vision_stage)
+
     def run_launcher(self, fail=False, device="emulator-5560", args=("android",)):
         with tempfile.TemporaryDirectory() as directory:
             tmp = Path(directory)

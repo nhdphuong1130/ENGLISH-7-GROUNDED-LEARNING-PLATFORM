@@ -33,3 +33,7 @@ RUN apt-get update \
     && pip install --no-cache-dir --timeout 300 \
         torch torchvision --index-url https://download.pytorch.org/whl/cpu \
     && pip install --no-cache-dir --timeout 300 ".[vision]"
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
