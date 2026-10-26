@@ -192,7 +192,7 @@ class DeckScreen extends StatefulWidget {
 
 class _DeckScreenState extends State<DeckScreen> {
   late final SpeechRecorder _player =
-      widget.audioPlayer ?? NativeSpeechRecorder();
+      widget.audioPlayer ?? createSpeechRecorder();
   late final TtsService _tts = widget.ttsService ?? NativeTtsService();
   late Future<List<Flashcard>> _cards;
   String? _playingCardId;

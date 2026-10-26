@@ -28,7 +28,7 @@ class SpeakingScreen extends StatefulWidget {
 
 class _SpeakingScreenState extends State<SpeakingScreen> {
   late final SpeechRecorder _recorder =
-      widget.recorder ?? NativeSpeechRecorder();
+      widget.recorder ?? createSpeechRecorder();
   late final TtsService _tts = widget.ttsService ?? NativeTtsService();
 
   SpeakingVoices? _voices;

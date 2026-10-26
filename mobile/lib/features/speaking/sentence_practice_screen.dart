@@ -40,7 +40,7 @@ class SentencePracticeScreen extends StatefulWidget {
 
 class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
   late final SpeechRecorder _recorder =
-      widget.recorder ?? NativeSpeechRecorder();
+      widget.recorder ?? createSpeechRecorder();
   late final TtsService _tts = widget.ttsService ?? NativeTtsService();
 
   List<SentencePracticeItem> _items = [];

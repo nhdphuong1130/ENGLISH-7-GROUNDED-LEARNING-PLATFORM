@@ -28,7 +28,7 @@ class ReviewScreen extends StatefulWidget {
 class _ReviewScreenState extends State<ReviewScreen>
     with TickerProviderStateMixin {
   late final SpeechRecorder _player =
-      widget.audioPlayer ?? NativeSpeechRecorder();
+      widget.audioPlayer ?? createSpeechRecorder();
   late final TtsService _tts = widget.ttsService ?? NativeTtsService();
   late Future<List<Flashcard>> _cards;
 
