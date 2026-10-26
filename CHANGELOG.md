@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Responsive Android/Web/PWA administration shell with dashboard and complete
+  student account search, create, edit, password reset, lock, archive, restore
+  and confirmed hard-delete workflows.
 - Audited administration APIs for student lifecycle/import/export/dashboard,
   versioned curriculum drafts, and grounded quiz, textbook flashcard and speaking
   prompt publishing with preview, archive, restoration and safe deletion.

@@ -45,6 +45,173 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
 
   @override
   Future<AdminDashboardSummary> loadAdminDashboard() async => adminDashboard;
+
+  List<AdminStudentRecord> adminStudents = [];
+  String? lastAdminStudentQuery;
+  int createdAdminStudents = 0;
+  final lockedAdminStudentIds = <String>[];
+  final archivedAdminStudentIds = <String>[];
+  final deletedAdminStudentIds = <String>[];
+  final resetAdminStudentIds = <String>[];
+  final restoredAdminStudentIds = <String>[];
+
+  AdminStudentRecord _adminStudentWith(
+    AdminStudentRecord value, {
+    String? email,
+    String? fullName,
+    String? schoolName,
+    String? className,
+    bool? isActive,
+    DateTime? archivedAt,
+    AdminStudentStatus? status,
+  }) => AdminStudentRecord(
+    id: value.id,
+    email: email ?? value.email,
+    fullName: fullName ?? value.fullName,
+    dateOfBirth: value.dateOfBirth,
+    gender: value.gender,
+    schoolName: schoolName ?? value.schoolName,
+    className: className ?? value.className,
+    isActive: isActive ?? value.isActive,
+    archivedAt: status == AdminStudentStatus.archived
+        ? (archivedAt ?? DateTime.utc(2026, 10, 26))
+        : archivedAt,
+    status: status ?? value.status,
+  );
+
+  AdminStudentRecord _replaceAdminStudent(
+    String id,
+    AdminStudentRecord Function(AdminStudentRecord value) change,
+  ) {
+    final index = adminStudents.indexWhere((item) => item.id == id);
+    final result = change(adminStudents[index]);
+    adminStudents[index] = result;
+    return result;
+  }
+
+  @override
+  Future<AdminStudentPage> loadAdminStudents({
+    String? query,
+    AdminStudentStatus? status,
+    int offset = 0,
+    int limit = 50,
+  }) async {
+    lastAdminStudentQuery = query;
+    final normalized = query?.toLowerCase();
+    final items = adminStudents.where((item) {
+      final matchesQuery =
+          normalized == null ||
+          item.email.toLowerCase().contains(normalized) ||
+          (item.fullName ?? '').toLowerCase().contains(normalized);
+      return matchesQuery && (status == null || item.status == status);
+    }).toList();
+    return AdminStudentPage(items, items.length, offset, limit);
+  }
+
+  @override
+  Future<AdminStudentRecord> loadAdminStudent(String id) async =>
+      adminStudents.singleWhere((item) => item.id == id);
+
+  @override
+  Future<AdminStudentRecord> createAdminStudent(AdminStudentInput input) async {
+    createdAdminStudents += 1;
+    final value = AdminStudentRecord(
+      id: 'student-created-$createdAdminStudents',
+      email: input.email,
+      fullName: input.fullName,
+      dateOfBirth: input.dateOfBirth,
+      gender: input.gender,
+      schoolName: input.schoolName,
+      className: input.className,
+      isActive: true,
+      status: AdminStudentStatus.active,
+    );
+    adminStudents.add(value);
+    return value;
+  }
+
+  @override
+  Future<AdminStudentRecord> updateAdminStudent(
+    String id,
+    AdminStudentInput input,
+  ) async => _replaceAdminStudent(
+    id,
+    (value) => _adminStudentWith(
+      value,
+      email: input.email,
+      fullName: input.fullName,
+      schoolName: input.schoolName,
+      className: input.className,
+    ),
+  );
+
+  @override
+  Future<void> resetAdminStudentPassword(String id, String password) async {
+    resetAdminStudentIds.add(id);
+  }
+
+  @override
+  Future<AdminStudentRecord> lockAdminStudent(String id) async {
+    lockedAdminStudentIds.add(id);
+    return _replaceAdminStudent(
+      id,
+      (value) => _adminStudentWith(
+        value,
+        isActive: false,
+        status: AdminStudentStatus.locked,
+      ),
+    );
+  }
+
+  @override
+  Future<AdminStudentRecord> unlockAdminStudent(String id) async =>
+      _replaceAdminStudent(
+        id,
+        (value) => _adminStudentWith(
+          value,
+          isActive: true,
+          status: AdminStudentStatus.active,
+        ),
+      );
+
+  @override
+  Future<AdminStudentRecord> archiveAdminStudent(
+    String id,
+    String confirmation,
+  ) async {
+    archivedAdminStudentIds.add(id);
+    return _replaceAdminStudent(
+      id,
+      (value) => _adminStudentWith(
+        value,
+        isActive: false,
+        status: AdminStudentStatus.archived,
+      ),
+    );
+  }
+
+  @override
+  Future<AdminStudentRecord> restoreAdminStudent(String id) async =>
+      _restoreAdminStudent(id);
+
+  AdminStudentRecord _restoreAdminStudent(String id) {
+    restoredAdminStudentIds.add(id);
+    return _replaceAdminStudent(
+      id,
+      (value) => _adminStudentWith(
+        value,
+        isActive: true,
+        status: AdminStudentStatus.active,
+      ),
+    );
+  }
+
+  @override
+  Future<void> deleteAdminStudent(String id, String confirmation) async {
+    deletedAdminStudentIds.add(id);
+    adminStudents.removeWhere((item) => item.id == id);
+  }
+
   List<AdminChatItem> adminChats = [];
   List<AdminChatStudentSummary> adminChatStudents = [];
   final Map<String, List<AdminChatItem>> adminStudentChatDetails = {};
