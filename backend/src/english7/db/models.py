@@ -64,6 +64,9 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     gender: Mapped[str | None] = mapped_column(String(30))
     school_name: Mapped[str | None] = mapped_column(Unicode(255))
     class_name: Mapped[str | None] = mapped_column(Unicode(100))
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
 
     role: Mapped[Role] = relationship()
 
@@ -517,6 +520,38 @@ class AuditEvent(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
     entity_id: Mapped[UUID] = mapped_column(nullable=False)
     event_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(100), index=True)
+    ip_address: Mapped[str | None] = mapped_column(String(64))
+    platform: Mapped[str | None] = mapped_column(String(100))
+    before_data: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    after_data: Mapped[dict[str, Any] | None] = mapped_column(JSON)
+    succeeded: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+
+
+class ContentRevision(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "content_revisions"
+    __table_args__ = (
+        UniqueConstraint(
+            "entity_type",
+            "entity_id",
+            "version",
+            name="uq_content_revision_entity_version",
+        ),
+        Index(
+            "ix_content_revision_entity",
+            "entity_type",
+            "entity_id",
+            "version",
+        ),
+    )
+
+    entity_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    entity_id: Mapped[UUID] = mapped_column(nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(30), default="draft", nullable=False)
+    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    actor_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class TutorConversation(Base, UUIDPrimaryKeyMixin, TimestampMixin):
