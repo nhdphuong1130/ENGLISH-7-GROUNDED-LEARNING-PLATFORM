@@ -34,6 +34,17 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
     averageAccuracy: 0,
     students: [],
   );
+  AdminDashboardSummary adminDashboard = const AdminDashboardSummary(
+    totalStudents: 0,
+    activeStudents: 0,
+    lockedStudents: 0,
+    archivedStudents: 0,
+    submittedTests: 0,
+    draftContent: 0,
+  );
+
+  @override
+  Future<AdminDashboardSummary> loadAdminDashboard() async => adminDashboard;
   List<AdminChatItem> adminChats = [];
   List<AdminChatStudentSummary> adminChatStudents = [];
   final Map<String, List<AdminChatItem>> adminStudentChatDetails = {};

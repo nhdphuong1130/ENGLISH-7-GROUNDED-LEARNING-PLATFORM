@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../features/auth/login_screen.dart';
+import '../features/admin/admin_shell.dart';
 import '../features/flashcards/learning_screen.dart';
 import '../features/lessons/lesson_screen.dart';
 import '../features/profile/profile_screen.dart';
@@ -29,6 +30,7 @@ class English7App extends StatefulWidget {
 class _English7AppState extends State<English7App> {
   final _navigatorKey = GlobalKey<NavigatorState>();
   _SessionState _sessionState = _SessionState.checking;
+  StudentProfile? _profile;
 
   @override
   void initState() {
@@ -41,11 +43,12 @@ class _English7AppState extends State<English7App> {
     try {
       final profile = await widget.api.restoreSession();
       if (!mounted) return;
-      setState(
-        () => _sessionState = profile == null
+      setState(() {
+        _profile = profile;
+        _sessionState = profile == null
             ? _SessionState.unauthenticated
-            : _SessionState.authenticated,
-      );
+            : _SessionState.authenticated;
+      });
     } catch (e, stack) {
       debugPrint('Session restore failed: $e\n$stack');
       if (!mounted) return;
@@ -53,27 +56,44 @@ class _English7AppState extends State<English7App> {
     }
   }
 
-  void _onAuthenticated() {
+  void _onAuthenticated() async {
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
-    setState(() => _sessionState = _SessionState.authenticated);
+    setState(() => _sessionState = _SessionState.checking);
+    try {
+      final profile = await widget.api.loadProfile();
+      if (!mounted) return;
+      setState(() {
+        _profile = profile;
+        _sessionState = _SessionState.authenticated;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _sessionState = _SessionState.failed);
+    }
   }
 
   Future<void> _logout() async {
     await widget.api.logout();
     if (!mounted) return;
     _navigatorKey.currentState?.popUntil((route) => route.isFirst);
-    setState(() => _sessionState = _SessionState.unauthenticated);
+    setState(() {
+      _profile = null;
+      _sessionState = _SessionState.unauthenticated;
+    });
   }
 
   Widget _home() => switch (_sessionState) {
     _SessionState.checking => const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     ),
-    _SessionState.authenticated => StudentShell(
-      api: widget.api,
-      imageSelector: widget.imageSelector,
-      onLogout: _logout,
-    ),
+    _SessionState.authenticated =>
+      _profile?.role == 'admin'
+          ? AdminShell(api: widget.api, onLogout: _logout)
+          : StudentShell(
+              api: widget.api,
+              imageSelector: widget.imageSelector,
+              onLogout: _logout,
+            ),
     _SessionState.unauthenticated => LoginScreen(
       api: widget.api,
       onAuthenticated: _onAuthenticated,
