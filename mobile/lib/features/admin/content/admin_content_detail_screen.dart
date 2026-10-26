@@ -1,0 +1,110 @@
+import 'package:flutter/material.dart';
+
+import '../../../app/admin_api.dart';
+import 'admin_content_schema.dart';
+
+class AdminContentDetailScreen extends StatefulWidget {
+  final AdminApi api;
+  final AdminContentSchema schema;
+
+  const AdminContentDetailScreen({
+    super.key,
+    required this.api,
+    required this.schema,
+  });
+
+  @override
+  State<AdminContentDetailScreen> createState() =>
+      _AdminContentDetailScreenState();
+}
+
+class _AdminContentDetailScreenState extends State<AdminContentDetailScreen> {
+  late Future<List<AdminContentRecord>> _items = _load();
+
+  Future<List<AdminContentRecord>> _load() => widget.api.loadAdminResource(
+    widget.schema.listPath,
+    query: widget.schema.query,
+  );
+
+  Future<void> _refresh() async {
+    final future = _load();
+    setState(() => _items = future);
+    await future;
+  }
+
+  String _status(String value) => switch (value) {
+    'draft' => 'Bản nháp',
+    'published' => 'Đã xuất bản',
+    'archived' => 'Đã lưu trữ',
+    _ => value,
+  };
+
+  void _open(AdminContentRecord item) {
+    final child = widget.schema.child?.call(item);
+    if (child == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            AdminContentDetailScreen(api: widget.api, schema: child),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: Text(widget.schema.label)),
+    body: FutureBuilder<List<AdminContentRecord>>(
+      future: _items,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: FilledButton.icon(
+              onPressed: _refresh,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Tải lại'),
+            ),
+          );
+        }
+        final items = snapshot.data ?? const [];
+        if (items.isEmpty) {
+          return const Center(child: Text('Chưa có nội dung chi tiết'));
+        }
+        return RefreshIndicator(
+          onRefresh: _refresh,
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final child = widget.schema.child?.call(item);
+              return Card(
+                child: ListTile(
+                  onTap: child == null ? null : () => _open(item),
+                  title: Text(widget.schema.title(item)),
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (widget.schema.subtitle(item) case final text?)
+                        Text(text),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${_status(item.status)} • Phiên bản ${item.version}',
+                      ),
+                    ],
+                  ),
+                  isThreeLine: widget.schema.subtitle(item) != null,
+                  trailing: child == null
+                      ? const Icon(Icons.edit_outlined)
+                      : const Icon(Icons.chevron_right),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    ),
+  );
+}

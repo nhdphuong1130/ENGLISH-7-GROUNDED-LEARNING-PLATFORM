@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../app/admin_api.dart';
 import 'admin_content_editor.dart';
+import 'admin_content_detail_screen.dart';
 import 'admin_revision_screen.dart';
+import 'admin_content_schema.dart';
 
 class AdminContentScreen extends StatefulWidget {
   final AdminApi api;
@@ -17,49 +19,17 @@ class AdminContentScreen extends StatefulWidget {
   State<AdminContentScreen> createState() => _AdminContentScreenState();
 }
 
-class _Section {
-  final String label;
-  final String listPath;
-  final String entityType;
-  final String segment;
-  const _Section(this.label, this.listPath, this.entityType, this.segment);
-}
-
-const _sections = [
-  _Section(
-    'Unit sách giáo khoa',
-    '/api/v1/admin/content/units',
-    'unit',
-    'units',
-  ),
-  _Section(
-    'Mẫu bài kiểm tra',
-    '/api/v1/admin/practice/quiz-blueprints',
-    'quiz_blueprint',
-    'quiz-blueprints',
-  ),
-  _Section(
-    'Bộ flashcard',
-    '/api/v1/admin/practice/decks',
-    'flashcard_deck',
-    'decks',
-  ),
-  _Section(
-    'Nội dung luyện nói',
-    '/api/v1/admin/practice/speaking-prompts',
-    'flashcard',
-    'cards',
-  ),
-];
-
 class _AdminContentScreenState extends State<AdminContentScreen> {
-  late int _section = widget.initialSection.clamp(0, _sections.length - 1);
+  late int _section = widget.initialSection.clamp(
+    0,
+    adminRootSchemas.length - 1,
+  );
   List<AdminContentRecord> _items = const [];
   bool _loading = true;
   Object? _error;
 
-  _Section get current => _sections[_section];
-  bool get _contentApi => _section == 0;
+  AdminContentSchema get current => adminRootSchemas[_section];
+  bool get _contentApi => current.versionBasePath.contains('/content');
 
   @override
   void initState() {
@@ -73,7 +43,10 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
       _error = null;
     });
     try {
-      final items = await widget.api.loadAdminResource(current.listPath);
+      final items = await widget.api.loadAdminResource(
+        current.listPath,
+        query: current.query,
+      );
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -89,24 +62,27 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
     }
   }
 
-  String _title(AdminContentRecord item) =>
-      (item.values['title'] ??
-              item.values['name'] ??
-              item.values['word'] ??
-              'Nội dung ${item.id}')
-          .toString();
+  String _title(AdminContentRecord item) => current.title(item);
   String _statusLabel(String status) => switch (status) {
     'draft' => 'Bản nháp',
     'published' => 'Đã xuất bản',
     'archived' => 'Đã lưu trữ',
     _ => status,
   };
-  String _base(AdminContentRecord item) => _contentApi
-      ? '/api/v1/admin/content/${current.segment}/${item.id}'
-      : '/api/v1/admin/practice/${current.segment}/${item.id}';
-  String _versionBase(AdminContentRecord item) => _contentApi
-      ? '/api/v1/admin/content/${current.entityType}/${item.id}'
-      : '/api/v1/admin/practice/${current.entityType}/${item.id}';
+  String _base(AdminContentRecord item) => '${current.basePath}/${item.id}';
+  String _versionBase(AdminContentRecord item) =>
+      '${current.versionBasePath}/${current.entityType}/${item.id}';
+
+  void _openDetails(AdminContentRecord item) {
+    final child = current.child?.call(item);
+    if (child == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            AdminContentDetailScreen(api: widget.api, schema: child),
+      ),
+    );
+  }
 
   Future<void> _preview(AdminContentRecord item) async {
     final result = await widget.api.runAdminResourceAction(
@@ -197,10 +173,10 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
                   initialValue: _section,
                   decoration: const InputDecoration(labelText: 'Nhóm nội dung'),
                   items: [
-                    for (var i = 0; i < _sections.length; i++)
+                    for (var i = 0; i < adminRootSchemas.length; i++)
                       DropdownMenuItem(
                         value: i,
-                        child: Text(_sections[i].label),
+                        child: Text(adminRootSchemas[i].label),
                       ),
                   ],
                   onChanged: (value) {
@@ -244,6 +220,9 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
                     final item = _items[index];
                     return Card(
                       child: ListTile(
+                        onTap: current.child == null
+                            ? null
+                            : () => _openDetails(item),
                         title: Text(_title(item)),
                         subtitle: Wrap(
                           spacing: 8,
@@ -251,6 +230,8 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
                           children: [
                             Chip(label: Text(_statusLabel(item.status))),
                             Text('Phiên bản ${item.version}'),
+                            if (item.childCount > 0)
+                              Text('${item.childCount} nội dung'),
                           ],
                         ),
                         trailing: Wrap(

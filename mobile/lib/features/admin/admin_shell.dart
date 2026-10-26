@@ -48,7 +48,7 @@ class _AdminShellState extends State<AdminShell> {
     1 => AdminStudentsScreen(api: widget.api),
     2 => AdminContentScreen(api: widget.api),
     3 => AdminContentScreen(api: widget.api, initialSection: 1),
-    4 => AdminContentScreen(api: widget.api, initialSection: 2),
+    4 => AdminContentScreen(api: widget.api, initialSection: 3),
     5 || 6 => ProgressScreen(api: widget.api, active: true),
     7 => AdminTransferScreen(api: widget.api),
     8 => AdminAuditScreen(api: widget.api),
