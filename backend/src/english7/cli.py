@@ -65,6 +65,22 @@ def export_seed(args: argparse.Namespace) -> None:
     args.output.write_text(manifest.to_json() + "\n", encoding="utf-8")
 
 
+def dump_sql(args: argparse.Namespace) -> None:
+    import sys
+    from english7.db.session import get_engine
+    from english7.modules.backup import SqlDatabaseDumper
+
+    dumper = SqlDatabaseDumper(get_engine(), database_name=args.database)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        with args.output.open("w", encoding="utf-8") as f:
+            dumper.dump(f)
+        print(f"Dump written to {args.output}")
+    else:
+        dumper.dump(sys.stdout)
+
+
+
 def import_ontology(args: argparse.Namespace) -> None:
     result = OntologyImporter(_knowledge_repository()).import_manifest(
         OntologyManifest.load(args.manifest)
@@ -209,6 +225,11 @@ def build_parser() -> argparse.ArgumentParser:
     graph_build = commands.add_parser("build-knowledge-graph")
     graph_build.add_argument("--ontology-version", required=True)
     graph_build.set_defaults(handler=build_knowledge_graph)
+
+    dump_parser = commands.add_parser("dump-sql")
+    dump_parser.add_argument("--database", default="english7")
+    dump_parser.add_argument("--output", type=Path, default=None)
+    dump_parser.set_defaults(handler=dump_sql)
     return parser
 
 

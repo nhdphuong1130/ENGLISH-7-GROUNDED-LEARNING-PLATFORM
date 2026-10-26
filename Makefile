@@ -72,13 +72,8 @@ backup-db:
 	$(COMPOSE) exec -T sqlserver mkdir -p /var/opt/mssql/backup
 	$(COMPOSE) exec -T sqlserver $(SQLCMD) -Q "BACKUP DATABASE [$(DB_NAME)] TO DISK = N'/var/opt/mssql/backup/$(BACKUP_BAK)' WITH INIT, COPY_ONLY"
 	$(COMPOSE) cp sqlserver:/var/opt/mssql/backup/$(BACKUP_BAK) $(BACKUP_DIR)/$(BACKUP_BAK)
-	printf '%s\n' \
-		"-- Generated restore helper for $(DB_NAME)" \
-		"-- Preferred full restore artifact: $(BACKUP_BAK)" \
-		"-- Use: make restore FILE=$(BACKUP_DIR)/$(BACKUP_BAK)" \
-		"SELECT '$(DB_NAME)' AS database_name, '$(BACKUP_BAK)' AS backup_file;" \
-		> $(BACKUP_DIR)/$(BACKUP_SQL)
-	@echo "Sao lưu thành công vào $(BACKUP_DIR)/$(BACKUP_BAK)"
+	$(COMPOSE) run --rm -T api python -m english7.cli dump-sql --database $(DB_NAME) > $(BACKUP_DIR)/$(BACKUP_SQL)
+	@echo "Sao lưu thành công vào $(BACKUP_DIR)/$(BACKUP_BAK) và $(BACKUP_DIR)/$(BACKUP_SQL)"
 
 restore:
 	@test -n "$(FILE)" || (echo "Sử dụng: make restore FILE=$(BACKUP_DIR)/<file.sql|file.bak>"; exit 1)
@@ -132,7 +127,6 @@ test-learning-live:
 	$(COMPOSE) exec -T api python -c "import sys; scope={}; exec(compile(sys.stdin.read(), 'test_learning_sqlserver.py', 'exec'),scope); scope['test_learning_transactions_on_live_database'](); print('Live SQL learning smoke passed; test records rolled back')" < backend/tests/integration/test_learning_sqlserver.py
 
 seed:
-	cd backend && $(UV) run python -m english7.cli seed
 	./scripts/build_full_knowledge_graph.sh
 
 clean:
