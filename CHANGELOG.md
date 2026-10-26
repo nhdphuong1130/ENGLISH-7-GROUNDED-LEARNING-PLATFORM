@@ -8,8 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Audited administration APIs for student lifecycle/import/export/dashboard and
-  versioned curriculum drafts, previews, publishing, restoration and safe deletion.
+- Audited administration APIs for student lifecycle/import/export/dashboard,
+  versioned curriculum drafts, and grounded quiz, textbook flashcard and speaking
+  prompt publishing with preview, archive, restoration and safe deletion.
 - Installable Flutter Web PWA for iPhone Safari, including same-origin API
   access, Home Screen metadata, browser audio playback, microphone-based WAV
   speaking practice, network-safe application-shell caching, and repeatable
