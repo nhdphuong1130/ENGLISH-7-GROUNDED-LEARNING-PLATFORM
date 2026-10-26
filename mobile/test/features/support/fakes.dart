@@ -212,6 +212,92 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
     adminStudents.removeWhere((item) => item.id == id);
   }
 
+  final Map<String, List<AdminContentRecord>> adminResources = {};
+  List<AdminRevision> adminRevisions = [];
+  final adminActionPaths = <String>[];
+  Map<String, Object?> lastAdminActionPayload = const {};
+  AdminImportReport adminImportReport = const AdminImportReport(
+    0,
+    0,
+    false,
+    [],
+  );
+  bool? lastImportDryRun;
+  List<AdminAuditRecord> adminAuditRecords = [];
+
+  @override
+  Future<List<AdminContentRecord>> loadAdminResource(String path) async =>
+      adminResources[path] ?? const [];
+
+  @override
+  Future<AdminContentRecord> createAdminResource(
+    String path,
+    Map<String, Object?> payload,
+  ) async {
+    final value = AdminContentRecord(
+      'created-${adminResources[path]?.length ?? 0}',
+      1,
+      'draft',
+      {'id': 'created', 'version': 1, 'status': 'draft', ...payload},
+    );
+    adminResources.putIfAbsent(path, () => []).add(value);
+    return value;
+  }
+
+  @override
+  Future<AdminContentRecord> updateAdminResource(
+    String path,
+    Map<String, Object?> payload,
+  ) async => AdminContentRecord(
+    path.split('/').last,
+    (payload['expected_version'] as int? ?? 0) + 1,
+    'draft',
+    payload,
+  );
+
+  @override
+  Future<AdminContentRecord> runAdminResourceAction(
+    String path, {
+    Map<String, Object?> payload = const {},
+  }) async {
+    adminActionPaths.add(path);
+    lastAdminActionPayload = payload;
+    final source = adminResources.values.expand((items) => items).firstOrNull;
+    return source ??
+        AdminContentRecord(
+          path.split('/').where((part) => part.isNotEmpty).last,
+          payload['expected_version'] as int? ?? 1,
+          path.endsWith('/publish') ? 'published' : 'draft',
+          {'id': 'preview', 'title': 'Preview', ...payload},
+        );
+  }
+
+  @override
+  Future<void> deleteAdminResource(String path, {String? confirmation}) async {}
+
+  @override
+  Future<List<AdminRevision>> loadAdminRevisions(String path) async =>
+      adminRevisions;
+
+  @override
+  Future<AdminImportReport> importAdminStudents(
+    AdminImportFile file, {
+    bool dryRun = true,
+  }) async {
+    lastImportDryRun = dryRun;
+    return adminImportReport;
+  }
+
+  @override
+  Future<Uint8List> exportAdminStudentAccounts(String format) async =>
+      Uint8List.fromList([80, 75]);
+
+  @override
+  Future<List<AdminAuditRecord>> loadAdminAudit({
+    int offset = 0,
+    int limit = 50,
+  }) async => adminAuditRecords;
+
   List<AdminChatItem> adminChats = [];
   List<AdminChatStudentSummary> adminChatStudents = [];
   final Map<String, List<AdminChatItem>> adminStudentChatDetails = {};

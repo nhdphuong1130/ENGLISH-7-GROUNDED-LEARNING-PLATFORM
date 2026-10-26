@@ -4,7 +4,10 @@ import '../../app/student_api.dart';
 import '../profile/profile_screen.dart';
 import '../progress/progress_screen.dart';
 import 'admin_dashboard_screen.dart';
+import 'audit/admin_audit_screen.dart';
+import 'content/admin_content_screen.dart';
 import 'students/admin_students_screen.dart';
+import 'transfers/admin_transfer_screen.dart';
 
 class _AdminDestination {
   final String label;
@@ -43,7 +46,12 @@ class _AdminShellState extends State<AdminShell> {
       onOpenStudents: () => setState(() => _index = 1),
     ),
     1 => AdminStudentsScreen(api: widget.api),
+    2 => AdminContentScreen(api: widget.api),
+    3 => AdminContentScreen(api: widget.api, initialSection: 1),
+    4 => AdminContentScreen(api: widget.api, initialSection: 2),
     5 || 6 => ProgressScreen(api: widget.api, active: true),
+    7 => AdminTransferScreen(api: widget.api),
+    8 => AdminAuditScreen(api: widget.api),
     9 => ProfileScreen(api: widget.api, onLogout: widget.onLogout),
     _ => _AdminPlaceholder(destination: _destinations[_index]),
   };
