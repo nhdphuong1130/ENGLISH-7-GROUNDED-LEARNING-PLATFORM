@@ -362,6 +362,9 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
   Future<void> login(String email, String password) async {}
 
   @override
+  Future<void> verifyAdminLoginOtp(String challengeId, String otp) async {}
+
+  @override
   Future<void> sendOtp(
     String phone, {
     String channel = 'sms',

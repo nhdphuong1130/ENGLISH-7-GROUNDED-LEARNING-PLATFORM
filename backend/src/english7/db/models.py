@@ -71,6 +71,30 @@ class User(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     role: Mapped[Role] = relationship()
 
 
+class AdminTrustedDevice(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "admin_trusted_devices"
+    __table_args__ = (
+        UniqueConstraint("admin_id", "device_hash", name="uq_admin_trusted_device"),
+    )
+
+    admin_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    trusted_until: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class AdminLoginChallenge(Base, UUIDPrimaryKeyMixin, TimestampMixin):
+    __tablename__ = "admin_login_challenges"
+
+    admin_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    device_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_phone: Mapped[str] = mapped_column(String(32), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+
 class Textbook(Base, UUIDPrimaryKeyMixin, TimestampMixin):
     __tablename__ = "textbooks"
 

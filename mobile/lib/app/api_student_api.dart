@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import '../api/api_client.dart';
@@ -6,6 +8,17 @@ import '../api/api_error.dart';
 import 'student_api.dart';
 import 'api_learning.dart';
 import 'api_admin.dart';
+
+class _EphemeralDeviceIdentityStore implements DeviceIdentityStore {
+  String? _deviceId;
+
+  @override
+  Future<String> getOrCreateDeviceId() async {
+    return _deviceId ??= base64UrlEncode(
+      List<int>.generate(24, (_) => Random.secure().nextInt(256)),
+    ).replaceAll('=', '');
+  }
+}
 
 class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
   @override
@@ -143,6 +156,7 @@ class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
 
   final ApiClient _client;
   final TokenStore _tokens;
+  final DeviceIdentityStore _deviceIdentity;
 
   final Duration imagePollInterval;
   final int imagePollMaxAttempts;
@@ -151,22 +165,56 @@ class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
   ApiStudentApi(
     this._client,
     this._tokens, {
+    DeviceIdentityStore? deviceIdentity,
     required this.imagePollInterval,
     required this.imagePollMaxAttempts,
     Future<void> Function(Duration)? delay,
-  }) : _delay = delay ?? Future<void>.delayed;
+  }) : _deviceIdentity =
+           deviceIdentity ??
+           (_tokens is DeviceIdentityStore
+               ? _tokens as DeviceIdentityStore
+               : _EphemeralDeviceIdentityStore()),
+       _delay = delay ?? Future<void>.delayed;
 
   @override
   Future<void> login(String email, String password) async {
+    final deviceId = await _deviceIdentity.getOrCreateDeviceId();
     final response = await _client.postJson('/api/v1/auth/login', {
       'email': email,
       'password': password,
+      'device_id': deviceId,
     });
     final token = response.body['access_token'] as String?;
+    final challengeId = response.body['challenge_id'] as String?;
+    if (challengeId != null && challengeId.isNotEmpty) {
+      throw AdminOtpRequired(
+        challengeId,
+        response.body['masked_phone'] as String? ?? '',
+      );
+    }
     if (token == null || token.isEmpty) {
       throw const ApiException(
         code: 'invalid_login_response',
         message: 'Login response did not include an access token',
+        statusCode: 502,
+      );
+    }
+    await _tokens.write(token);
+  }
+
+  @override
+  Future<void> verifyAdminLoginOtp(String challengeId, String otp) async {
+    final deviceId = await _deviceIdentity.getOrCreateDeviceId();
+    final response = await _client.postJson('/api/v1/auth/admin-login/verify', {
+      'challenge_id': challengeId,
+      'device_id': deviceId,
+      'otp': otp,
+    });
+    final token = response.body['access_token'] as String?;
+    if (token == null || token.isEmpty) {
+      throw const ApiException(
+        code: 'invalid_admin_otp_response',
+        message: 'Admin OTP response did not include an access token',
         statusCode: 502,
       );
     }

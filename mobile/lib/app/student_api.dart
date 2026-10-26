@@ -253,6 +253,13 @@ class TutorConversationUnavailable implements Exception {
   const TutorConversationUnavailable();
 }
 
+class AdminOtpRequired implements Exception {
+  final String challengeId;
+  final String maskedPhone;
+
+  const AdminOtpRequired(this.challengeId, this.maskedPhone);
+}
+
 class QuizSetup {
   final int durationMinutes;
   final String difficulty;
@@ -542,6 +549,7 @@ abstract interface class StudentApi implements LearningApi, AdminApi {
     String format,
   );
   Future<void> login(String email, String password);
+  Future<void> verifyAdminLoginOtp(String challengeId, String otp);
   Future<void> sendOtp(
     String phone, {
     String channel = 'sms',

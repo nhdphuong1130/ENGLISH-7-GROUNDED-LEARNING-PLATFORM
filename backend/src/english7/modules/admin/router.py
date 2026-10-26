@@ -11,6 +11,8 @@ from english7.db.models import ReviewStatus
 from english7.modules.auth.domain import AuthUser
 from english7.modules.auth.router import get_current_user
 from english7.modules.auth.service import AuthService
+from english7.modules.auth.admin_device_service import AdminDeviceService
+from english7.modules.auth.router import get_admin_device_service
 from english7.modules.admin.dependencies import AdminUser, require_admin
 from english7.modules.speaking.router import VoiceRequest, get_speaking_service
 from english7.modules.speaking.service import MAX_AUDIO_BYTES, SpeakingService
@@ -561,6 +563,15 @@ def get_admin_speaking_service(
 
 
 SpeakingServiceDep = Annotated[SpeakingService, Depends(get_admin_speaking_service)]
+
+
+@router.post("/trusted-devices/revoke-all", status_code=204)
+def revoke_admin_trusted_devices(
+    admin: AdminUser,
+    service: Annotated[AdminDeviceService, Depends(get_admin_device_service)],
+) -> Response:
+    service.revoke_all(admin.id)
+    return Response(status_code=204)
 
 
 @router.get("/speaking/voices")

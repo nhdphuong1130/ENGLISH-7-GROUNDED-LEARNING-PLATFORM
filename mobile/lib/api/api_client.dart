@@ -11,6 +11,10 @@ abstract interface class TokenStore {
   Future<void> clear();
 }
 
+abstract interface class DeviceIdentityStore {
+  Future<String> getOrCreateDeviceId();
+}
+
 class ApiResponse<T> {
   final T body;
   final String? traceId;

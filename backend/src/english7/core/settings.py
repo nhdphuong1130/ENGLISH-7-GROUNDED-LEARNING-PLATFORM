@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     sms_gateway_url: str | None = "http://127.0.0.1:8080"
     sms_gateway_username: str | None = "sms"
     sms_gateway_password: SecretStr | None = None
+    admin_otp_phone: str | None = None
     clicksend_username: str | None = None
     clicksend_api_key: SecretStr | None = None
 

@@ -1,6 +1,7 @@
 from datetime import date, timedelta
 from functools import lru_cache
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,6 +14,7 @@ from english7.db.session import get_session_factory
 from english7.modules.auth.domain import AuthUser, ProfileGender
 from english7.modules.auth.repository import SQLAlchemyAuthRepository
 from english7.modules.auth.service import AuthService
+from english7.modules.auth.admin_device_service import AdminDeviceService
 from english7.modules.auth.sms_service import SmsOtpService, get_sms_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,6 +26,7 @@ class CredentialsRequest(BaseModel):
 
     email: str = Field(min_length=3, max_length=255)
     password: str = Field(min_length=8, max_length=128)
+    device_id: str | None = Field(default=None, min_length=16, max_length=512)
 
 
 class UserResponse(BaseModel):
@@ -73,6 +76,20 @@ class TokenResponse(BaseModel):
 
     access_token: str
     token_type: str = "bearer"
+
+
+class AdminLoginChallengeResponse(BaseModel):
+    challenge_id: UUID
+    masked_phone: str
+    expires_in_seconds: int = 300
+
+
+class AdminLoginVerifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    challenge_id: UUID
+    device_id: str = Field(min_length=16, max_length=512)
+    otp: str = Field(min_length=4, max_length=10)
 
 
 class SendOtpRequest(BaseModel):
@@ -157,6 +174,14 @@ def get_current_user(
     return service.authenticate_token(credentials.credentials)
 
 
+def get_admin_device_service() -> AdminDeviceService:
+    return AdminDeviceService(lambda: get_session_factory()())
+
+
+def get_admin_otp_phone() -> str | None:
+    return get_settings().admin_otp_phone
+
+
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(
     payload: CredentialsRequest,
@@ -166,12 +191,49 @@ def register(
     return UserResponse.from_user(user)
 
 
-@router.post("/login", response_model=TokenResponse)
+@router.post("/login", response_model=TokenResponse | AdminLoginChallengeResponse)
 def login(
     payload: CredentialsRequest,
+    response: Response,
     service: Annotated[AuthService, Depends(get_auth_service)],
+    device_service: Annotated[AdminDeviceService, Depends(get_admin_device_service)],
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
+    admin_phone: Annotated[str | None, Depends(get_admin_otp_phone)],
+) -> TokenResponse | AdminLoginChallengeResponse:
+    user = service.verify_credentials(payload.email, payload.password)
+    if user.role != "admin":
+        return TokenResponse(access_token=service.issue_token(user))
+    if payload.device_id is None:
+        raise ApplicationError("admin_device_required", "Admin login requires a device identifier", 422)
+    if device_service.is_trusted(user.id, payload.device_id):
+        return TokenResponse(access_token=service.issue_token(user))
+    if not admin_phone or not admin_phone.strip():
+        raise ApplicationError("admin_otp_not_configured", "Admin OTP phone is not configured", 503)
+    sms_service.send_otp(admin_phone)
+    challenge = device_service.create_challenge(user.id, payload.device_id, admin_phone)
+    digits = "".join(character for character in admin_phone if character.isdigit())
+    masked = f"***{digits[-3:]}" if digits else "***"
+    response.status_code = status.HTTP_202_ACCEPTED
+    return AdminLoginChallengeResponse(challenge_id=challenge.id, masked_phone=masked)
+
+
+@router.post("/admin-login/verify", response_model=TokenResponse)
+def verify_admin_login(
+    payload: AdminLoginVerifyRequest,
+    service: Annotated[AuthService, Depends(get_auth_service)],
+    device_service: Annotated[AdminDeviceService, Depends(get_admin_device_service)],
+    sms_service: Annotated[SmsOtpService, Depends(get_sms_service)],
 ) -> TokenResponse:
-    return TokenResponse(access_token=service.login(payload.email, payload.password))
+    admin_id = device_service.verify_challenge(
+        payload.challenge_id,
+        payload.device_id,
+        payload.otp,
+        sms_service,
+    )
+    user = service.repository.get_by_id(admin_id)
+    if user is None or user.role != "admin" or not user.is_active:
+        raise ApplicationError("admin_not_found", "Admin account is unavailable", 401)
+    return TokenResponse(access_token=service.issue_token(user))
 
 
 @router.post("/otp/send", response_model=SendOtpResponse)

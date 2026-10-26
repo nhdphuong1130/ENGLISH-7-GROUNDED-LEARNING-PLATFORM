@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- OTP verification for administrator logins from new Android, iOS/PWA or web
+  devices, with hashed 30-day trusted-device records, attempt limits and an
+  authenticated revoke-all endpoint.
 - Responsive Android/Web/PWA administration shell with dashboard and complete
   student account search, create, edit, password reset, lock, archive, restore
   and confirmed hard-delete workflows.
