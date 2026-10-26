@@ -10,11 +10,13 @@ echo "=================================================="
 echo " 🚀 English 7 Grounded Learning Platform"
 echo "=================================================="
 
-# Start only the services needed by the app; OCR is enabled separately.
-echo "[1/2] Khởi động backend và chờ API sẵn sàng..."
-if ! docker compose up -d --wait --wait-timeout 180 api; then
-    echo "Backend chưa sẵn sàng. Kiểm tra bằng: docker compose logs --tail=60 api sqlserver-init" >&2
-    exit 1
+# Start every runtime used by the app, including the image OCR worker.
+echo "[1/2] Khởi động backend, OCR và runtime giọng nói..."
+if ! docker compose -f docker-compose.yml -f compose.speech.yml up -d --wait --wait-timeout 180 api worker speech-runtime 2>/dev/null; then
+    if ! docker compose up -d --wait --wait-timeout 180 api worker; then
+        echo "Backend chưa sẵn sàng. Kiểm tra bằng: docker compose logs --tail=60 api sqlserver-init" >&2
+        exit 1
+    fi
 fi
 # This initializer exits successfully instead of staying up like an API service.
 docker compose run --rm --no-deps minio-init

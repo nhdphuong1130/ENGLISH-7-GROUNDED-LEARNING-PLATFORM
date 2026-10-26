@@ -1,9 +1,13 @@
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
 from english7.modules.image_uploads.domain import ImageUploadRecord
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,5 +78,6 @@ class ImageUploadProcessor:
             )
             self._repository.mark_ready(upload.id, text, confidence)
         except Exception:
+            logger.exception("Image upload processing failed for %s", upload.id)
             self._repository.mark_failed(upload.id, "image_processing_failed")
         return True

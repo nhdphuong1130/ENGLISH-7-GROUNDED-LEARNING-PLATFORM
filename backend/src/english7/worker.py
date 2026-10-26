@@ -30,7 +30,13 @@ def run_worker(
 
 
 def _required(value, name: str):
-    if value is None or (isinstance(value, str) and not value.strip()):
+    if value is None or (
+        isinstance(value, str)
+        and (
+            not value.strip()
+            or value.strip().lower().startswith("replace-with-")
+        )
+    ):
         raise RuntimeError(f"{name} is required for the image worker")
     return value
 

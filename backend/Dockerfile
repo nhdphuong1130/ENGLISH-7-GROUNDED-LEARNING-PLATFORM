@@ -27,4 +27,9 @@ CMD ["uvicorn", "english7.main:app", "--host", "0.0.0.0", "--port", "8000"]
 FROM base AS runtime
 
 FROM base AS vision
-RUN pip install --no-cache-dir --timeout 300 ".[vision]"
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir --timeout 300 \
+        torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    && pip install --no-cache-dir --timeout 300 ".[vision]"

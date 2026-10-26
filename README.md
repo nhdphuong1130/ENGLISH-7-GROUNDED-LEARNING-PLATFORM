@@ -20,10 +20,10 @@ Giữ terminal đang chạy; nhấn `q` để thoát Flutter, `make down` để 
 Trong Android Studio có thể chọn cấu hình **Run App (Android)** thay vì **Mobile App (Flutter)**.
 Nếu dùng cấu hình Flutter trực tiếp, chạy `make up` trước rồi bấm **Thử lại** trên app.
 
-`make up` chỉ bật backend cơ bản. Khi cần xử lý ảnh/OCR, chạy `make up-full`;
-lần đầu phải tải Torch và các thư viện AI lớn, cần mạng ổn định và có thể mất nhiều thời gian.
-Chức năng ảnh/OCR cần worker chạy; `make run` không tự bật worker.
-`docker compose up -d` vẫn bật toàn bộ dịch vụ, bao gồm worker.
+`make up` chỉ bật backend cơ bản. `make run` và `make up-full` bật cả worker OCR;
+lần đầu phải tải Torch, mô hình DocLayout-YOLO và các thư viện PaddleOCR nên cần
+mạng ổn định và có thể mất nhiều thời gian. `docker compose up -d` cũng bật toàn
+bộ dịch vụ, bao gồm worker.
 Timeout tải thư viện vision là 300 giây; nếu mạng ngắt hẳn, build vẫn có thể thất bại.
 
 Kiểm tra script khởi động bằng `make test-launcher`. Có thể chọn thiết bị cụ thể với

@@ -12,13 +12,13 @@ services:
       SPEECH_BIND_HOST: 0.0.0.0
       HF_HUB_OFFLINE: "1"
       # Small NumPy projection calls otherwise start 12 BLAS threads and waste
-      # this container's four-CPU quota alongside the ONNX inference pools.
+      # this container's two-CPU quota alongside the ONNX inference pools.
       OPENBLAS_NUM_THREADS: "1"
     volumes:
       - ./speech/.cache:/app/speech/.cache
     ports:
       - "127.0.0.1:8010:8010"
-    cpus: 4
+    cpus: 2
     mem_limit: 4g
     healthcheck:
       test: ["CMD", "python", "-c", "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8010/health'))['available']"]

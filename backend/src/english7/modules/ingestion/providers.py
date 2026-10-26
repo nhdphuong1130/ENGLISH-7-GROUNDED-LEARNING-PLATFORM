@@ -1,3 +1,4 @@
+from pathlib import Path
 from typing import Any
 
 from english7.modules.image_uploads.processor import (
@@ -27,13 +28,23 @@ class DocLayoutYOLOProvider:
     ) -> None:
         from doclayout_yolo import YOLOv10
 
-        self._model = YOLOv10(model_id)
+        if "/" in model_id and not Path(model_id).exists():
+            from huggingface_hub import hf_hub_download
+
+            checkpoint = hf_hub_download(
+                repo_id=model_id,
+                filename="doclayout_yolo_docstructbench_imgsz1024.pt",
+            )
+            self._model = YOLOv10(checkpoint)
+        else:
+            self._model = YOLOv10(model_id)
         self._device = device.doclayout_value
         self._confidence = confidence_threshold
 
     def __call__(self, content: bytes) -> list[ImageRegion]:
+        image = _decode_image(content)
         results = self._model.predict(
-            source=_decode_image(content),
+            source=image,
             conf=self._confidence,
             device=self._device,
             verbose=False,
@@ -63,6 +74,9 @@ class DocLayoutYOLOProvider:
                         float(confidence),
                     )
                 )
+        if not regions:
+            height, width = image.shape[:2]
+            regions.append(ImageRegion(0, 0, width, height, "page", 1.0))
         return regions
 
 
@@ -77,6 +91,7 @@ class PaddleOCRProvider:
                 lang=language,
                 ocr_version=version,
                 device="cpu",
+                enable_mkldnn=False,
                 use_doc_orientation_classify=False,
                 use_doc_unwarping=False,
                 use_textline_orientation=False,

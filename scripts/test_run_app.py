@@ -41,10 +41,12 @@ fi
                                     cwd=tmp, env=env, capture_output=True, text=True)
             return result, log.read_text()
 
-    def test_starts_only_core_services_and_waits_before_flutter(self):
+    def test_starts_api_image_worker_and_waits_before_flutter(self):
         result, calls = self.run_launcher()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("up -d --wait --wait-timeout 180 api\n", calls)
+        self.assertIn("up -d --wait --wait-timeout 180", calls)
+        self.assertIn("api", calls)
+        self.assertIn("worker", calls)
         self.assertIn("run --rm --no-deps minio-init", calls)
         self.assertLess(calls.index("up -d"), calls.index("run -d"))
         self.assertIn(f"docker:{ROOT}:", calls)

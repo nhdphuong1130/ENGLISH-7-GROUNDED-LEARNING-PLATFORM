@@ -126,6 +126,9 @@ services:
       ENGLISH7_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       ENGLISH7_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       ENGLISH7_MINIO_UPLOAD_BUCKET: ${MINIO_UPLOAD_BUCKET}
+      PYTHONPATH: /app/src
+    volumes:
+      - ./backend/src:/app/src
     deploy:
       resources:
         reservations:
@@ -170,6 +173,9 @@ services:
       ENGLISH7_MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       ENGLISH7_MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       ENGLISH7_MINIO_UPLOAD_BUCKET: ${MINIO_UPLOAD_BUCKET}
+      PYTHONPATH: /app/src
+    volumes:
+      - ./backend/src:/app/src
     depends_on:
       sqlserver-init:
         condition: service_completed_successfully

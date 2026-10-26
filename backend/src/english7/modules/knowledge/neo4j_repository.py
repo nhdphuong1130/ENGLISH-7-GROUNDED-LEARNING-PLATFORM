@@ -43,6 +43,10 @@ class Neo4jKnowledgeRepository:
 
     def ensure_schema(self) -> None:
         constraints = [
+            "CREATE CONSTRAINT textbook_title IF NOT EXISTS FOR (tb:Textbook) REQUIRE tb.title IS UNIQUE",
+            "CREATE CONSTRAINT unit_number IF NOT EXISTS FOR (u:Unit) REQUIRE u.number IS UNIQUE",
+            "CREATE CONSTRAINT section_sql_id IF NOT EXISTS FOR (s:Section) REQUIRE s.sql_id IS UNIQUE",
+            "CREATE CONSTRAINT activity_sql_id IF NOT EXISTS FOR (a:Activity) REQUIRE a.sql_id IS UNIQUE",
             "CREATE CONSTRAINT source_fragment_sql_id IF NOT EXISTS FOR (fragment:SourceFragment) REQUIRE fragment.sql_id IS UNIQUE",
             "CREATE CONSTRAINT knowledge_concept_id IF NOT EXISTS FOR (concept:KnowledgeConcept) REQUIRE concept.id IS UNIQUE",
         ]
