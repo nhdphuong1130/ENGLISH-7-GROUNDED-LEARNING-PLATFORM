@@ -68,7 +68,7 @@ void main() {
           'id': 'card-1',
           'word': 'hobby',
           'meaning': 'sở thích',
-              'source_fragment_id': 'fragment-1',
+          'source_fragment_id': 'fragment-1',
           'version': 1,
           'status': 'published',
         }),
@@ -126,6 +126,52 @@ void main() {
       '/api/v1/admin/content/units/unit-1/sections',
     );
     expect(api.lastCreatedAdminPayload?['position'], 1);
+  });
+
+  testWidgets('publishes and safely deletes a detailed card', (tester) async {
+    final api = FakeStudentApi()
+      ..adminResources['/api/v1/admin/practice/decks'] = const [
+        AdminContentRecord('deck-1', 1, 'published', {
+          'id': 'deck-1',
+          'name': 'Unit 1 cards',
+          'version': 1,
+          'status': 'published',
+        }),
+      ]
+      ..adminResources['/api/v1/admin/practice/decks/deck-1/cards'] = const [
+        AdminContentRecord('card-1', 4, 'draft', {
+          'id': 'card-1',
+          'word': 'hobby',
+          'meaning': 'sở thích',
+          'source_fragment_id': 'fragment-1',
+          'version': 4,
+          'status': 'draft',
+        }),
+      ];
+    await tester.pumpWidget(
+      MaterialApp(home: AdminContentScreen(api: api, initialSection: 3)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Unit 1 cards'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Thao tác hobby'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xuất bản'));
+    await tester.pumpAndSettle();
+    expect(
+      api.adminActionPaths.last,
+      '/api/v1/admin/practice/cards/card-1/publish',
+    );
+    expect(api.lastAdminActionPayload, {'expected_version': 4});
+
+    await tester.tap(find.byTooltip('Thao tác hobby'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Xóa'));
+    await tester.pumpAndSettle();
+    expect(find.text('Xóa vĩnh viễn?'), findsOneWidget);
+    await tester.tap(find.widgetWithText(FilledButton, 'Xóa'));
+    await tester.pumpAndSettle();
+    expect(api.deletedAdminPaths, ['/api/v1/admin/practice/cards/card-1']);
   });
 
   testWidgets('previews a draft and opens immutable revision history', (

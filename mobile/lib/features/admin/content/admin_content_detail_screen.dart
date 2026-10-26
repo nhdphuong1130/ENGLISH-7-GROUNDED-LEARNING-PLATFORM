@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../app/admin_api.dart';
 import 'admin_content_editor.dart';
+import 'admin_revision_screen.dart';
 import 'admin_content_schema.dart';
 
 class AdminContentDetailScreen extends StatefulWidget {
@@ -75,6 +76,77 @@ class _AdminContentDetailScreenState extends State<AdminContentDetailScreen> {
     ),
   );
 
+  bool get _hasPublication => switch (widget.schema.kind) {
+    AdminContentKind.unit ||
+    AdminContentKind.fragment ||
+    AdminContentKind.blueprint ||
+    AdminContentKind.question ||
+    AdminContentKind.deck ||
+    AdminContentKind.card => true,
+    _ => false,
+  };
+
+  Future<void> _action(AdminContentRecord item, String action) async {
+    try {
+      if (action == 'edit') {
+        await _edit(item);
+        return;
+      }
+      if (action == 'history') {
+        await Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (_) => AdminRevisionScreen(
+              api: widget.api,
+              path:
+                  '${widget.schema.versionBasePath}/${widget.schema.entityType}/${item.id}/versions',
+            ),
+          ),
+        );
+        return;
+      }
+      if (action == 'delete') {
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Xóa vĩnh viễn?'),
+            content: const Text(
+              'Nội dung đã có dữ liệu học tập sẽ không thể xóa; hãy lưu trữ nội dung đó.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Xóa'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed == true) {
+          await widget.api.deleteAdminResource(
+            '${widget.schema.basePath}/${item.id}',
+          );
+          await _refresh();
+        }
+        return;
+      }
+      final isPractice = widget.schema.versionBasePath.contains('/practice');
+      await widget.api.runAdminResourceAction(
+        '${widget.schema.basePath}/${item.id}/$action',
+        payload: action == 'publish' || isPractice
+            ? {'expected_version': item.version}
+            : const {},
+      );
+      await _refresh();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Không thể thực hiện: $error')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.schema.label)),
@@ -126,9 +198,32 @@ class _AdminContentDetailScreenState extends State<AdminContentDetailScreen> {
                     ],
                   ),
                   isThreeLine: widget.schema.subtitle(item) != null,
-                  trailing: child == null
-                      ? const Icon(Icons.edit_outlined)
-                      : const Icon(Icons.chevron_right),
+                  trailing: PopupMenuButton<String>(
+                    tooltip: 'Thao tác ${widget.schema.title(item)}',
+                    onSelected: (value) => _action(item, value),
+                    itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Chỉnh sửa'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'history',
+                        child: Text('Lịch sử phiên bản'),
+                      ),
+                      if (_hasPublication && item.status != 'published')
+                        const PopupMenuItem(
+                          value: 'publish',
+                          child: Text('Xuất bản'),
+                        ),
+                      if (_hasPublication && item.status == 'published')
+                        const PopupMenuItem(
+                          value: 'archive',
+                          child: Text('Lưu trữ'),
+                        ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(value: 'delete', child: Text('Xóa')),
+                    ],
+                  ),
                 ),
               );
             },
