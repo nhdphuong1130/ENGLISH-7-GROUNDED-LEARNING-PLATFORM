@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/student_api.dart';
 import 'forgot_password_screen.dart';
@@ -37,7 +38,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
     try {
       await widget.api.login(_email.text, _password.text);
-      widget.onAuthenticated();
+      _completeAuthentication();
     } on AdminOtpRequired catch (challenge) {
       if (mounted) await _showAdminOtpDialog(challenge);
     } catch (_) {
@@ -45,6 +46,11 @@ class _LoginScreenState extends State<LoginScreen> {
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  void _completeAuthentication() {
+    TextInput.finishAutofillContext(shouldSave: true);
+    widget.onAuthenticated();
   }
 
   Future<void> _showAdminOtpDialog(AdminOtpRequired challenge) async {
@@ -108,7 +114,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         );
                         if (!dialogContext.mounted) return;
                         Navigator.of(dialogContext).pop();
-                        widget.onAuthenticated();
+                        _completeAuthentication();
                       } catch (_) {
                         if (dialogContext.mounted) {
                           setDialogState(() {

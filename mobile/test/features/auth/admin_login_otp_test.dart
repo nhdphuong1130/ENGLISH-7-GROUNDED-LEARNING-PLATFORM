@@ -21,6 +21,12 @@ class AdminOtpApi extends FakeStudentApi {
   }
 }
 
+bool requestedAutofillSave(WidgetTester tester) => tester.testTextInput.log.any(
+  (call) =>
+      call.method == 'TextInput.finishAutofillContext' &&
+      call.arguments == true,
+);
+
 void main() {
   testWidgets('admin verifies a new device before authentication', (
     tester,
@@ -38,11 +44,13 @@ void main() {
 
     await tester.enterText(find.byKey(const Key('email-field')), 'admin@test');
     await tester.enterText(find.byKey(const Key('password-field')), 'secret');
+    tester.testTextInput.log.clear();
     await tester.tap(find.text('Đăng nhập'));
     await tester.pumpAndSettle();
 
     expect(find.text('Xác thực OTP quản trị'), findsOneWidget);
     expect(find.textContaining('+84******251'), findsOneWidget);
+    expect(requestedAutofillSave(tester), isFalse);
     await tester.enterText(find.byKey(const Key('admin-otp-field')), '123456');
     await tester.tap(find.byKey(const Key('verify-admin-otp-btn')));
     await tester.pumpAndSettle();
@@ -50,5 +58,6 @@ void main() {
     expect(api.submittedChallenge, 'challenge-1');
     expect(api.submittedOtp, '123456');
     expect(authenticated, isTrue);
+    expect(requestedAutofillSave(tester), isTrue);
   });
 }
