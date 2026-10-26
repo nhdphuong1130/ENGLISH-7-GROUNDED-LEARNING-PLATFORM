@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+
 import 'learning_api.dart';
 
 enum TutorLanguage { vietnamese, english }
@@ -448,13 +449,43 @@ class AdminProgressOverview {
         totalQuizzes: json['total_quizzes'] as int? ?? 0,
         averageAccuracy: json['average_accuracy'] as int? ?? 0,
         students: (json['students'] as List? ?? [])
-            .map((e) => AdminStudentProgress.fromJson(Map<String, dynamic>.from(e as Map)))
+            .map(
+              (e) => AdminStudentProgress.fromJson(
+                Map<String, dynamic>.from(e as Map),
+              ),
+            )
             .toList(),
+      );
+}
+
+class AdminChatStudentSummary {
+  final String studentId;
+  final String studentEmail;
+  final String? studentName;
+  final int exchangeCount;
+  final DateTime lastActivityAt;
+
+  const AdminChatStudentSummary({
+    required this.studentId,
+    required this.studentEmail,
+    this.studentName,
+    required this.exchangeCount,
+    required this.lastActivityAt,
+  });
+
+  factory AdminChatStudentSummary.fromJson(Map<String, dynamic> json) =>
+      AdminChatStudentSummary(
+        studentId: json['student_id'] as String,
+        studentEmail: json['student_email'] as String,
+        studentName: json['student_name'] as String?,
+        exchangeCount: json['exchange_count'] as int? ?? 0,
+        lastActivityAt: DateTime.parse(json['last_activity_at'] as String),
       );
 }
 
 class AdminChatItem {
   final String id;
+  final String conversationId;
   final String userId;
   final String userEmail;
   final String? userName;
@@ -467,6 +498,7 @@ class AdminChatItem {
 
   const AdminChatItem({
     required this.id,
+    this.conversationId = '',
     required this.userId,
     required this.userEmail,
     this.userName,
@@ -479,25 +511,35 @@ class AdminChatItem {
   });
 
   factory AdminChatItem.fromJson(Map<String, dynamic> json) => AdminChatItem(
-        id: json['id'] as String,
-        userId: json['user_id'] as String,
-        userEmail: json['user_email'] as String,
-        userName: json['user_name'] as String?,
-        question: json['question'] as String,
-        answer: json['answer'] as String,
-        language: json['language'] as String,
-        uploadId: json['upload_id'] as String?,
-        citations: (json['citations'] as List? ?? [])
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList(),
-        createdAt: DateTime.parse(json['created_at'] as String),
-      );
+    id: json['id'] as String,
+    conversationId: json['conversation_id'] as String? ?? '',
+    userId: json['user_id'] as String,
+    userEmail: json['user_email'] as String,
+    userName: json['user_name'] as String?,
+    question: json['question'] as String,
+    answer: json['answer'] as String,
+    language: json['language'] as String,
+    uploadId: json['upload_id'] as String?,
+    citations: (json['citations'] as List? ?? [])
+        .map((e) => Map<String, dynamic>.from(e as Map))
+        .toList(),
+    createdAt: DateTime.parse(json['created_at'] as String),
+  );
 }
 
 abstract interface class StudentApi implements LearningApi {
   Future<StudentProgress> loadProgress();
   Future<AdminProgressOverview> loadAdminProgress();
+  Future<List<AdminChatStudentSummary>> loadAdminChatStudents();
+  Future<List<AdminChatItem>> loadAdminStudentChats(String studentId);
+  Future<Uint8List> exportAdminStudentChats(String studentId, String format);
   Future<List<AdminChatItem>> loadAdminChats();
+  Future<List<AdminChatItem>> loadAdminConversation(String conversationId);
+  Future<Uint8List> exportAdminStudents(String format);
+  Future<Uint8List> exportAdminConversation(
+    String conversationId,
+    String format,
+  );
   Future<void> login(String email, String password);
   Future<void> sendOtp(
     String phone, {

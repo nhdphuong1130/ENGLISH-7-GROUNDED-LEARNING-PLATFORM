@@ -1,5 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../app/learning_api.dart';
 import '../../app/student_api.dart';
@@ -9,11 +13,13 @@ class ProgressScreen extends StatefulWidget {
   final StudentApi api;
   final bool active;
   final void Function(int tabIndex, {String? initialPrompt})? onNavigateTab;
+  final Future<void> Function(String filename, Uint8List bytes)? exportHandler;
   const ProgressScreen({
     super.key,
     required this.api,
     required this.active,
     this.onNavigateTab,
+    this.exportHandler,
   });
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
@@ -29,10 +35,51 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
   bool _isAdmin = false;
   AdminProgressOverview? _adminOverview;
-  List<AdminChatItem>? _adminChats;
+  List<AdminChatStudentSummary>? _adminChatStudents;
   int _adminTab = 0;
   String _studentFilter = '';
   String _chatFilter = '';
+
+  Future<void> _shareExport(String filename, Uint8List bytes) async {
+    final directory = await getTemporaryDirectory();
+    final file = File('${directory.path}/$filename');
+    await file.writeAsBytes(bytes, flush: true);
+    await SharePlus.instance.share(
+      ShareParams(files: [XFile(file.path)], title: filename),
+    );
+  }
+
+  Future<void> _exportStudents(String format) async {
+    try {
+      final bytes = await widget.api.exportAdminStudents(format);
+      await (widget.exportHandler ?? _shareExport)(
+        'student-progress.$format',
+        bytes,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể xuất báo cáo lúc này.')),
+        );
+      }
+    }
+  }
+
+  Future<void> _exportStudentChats(String studentId, String format) async {
+    try {
+      final bytes = await widget.api.exportAdminStudentChats(studentId, format);
+      await (widget.exportHandler ?? _shareExport)(
+        'student-chat-$studentId.$format',
+        bytes,
+      );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không thể xuất hội thoại lúc này.')),
+        );
+      }
+    }
+  }
 
   @override
   void initState() {
@@ -64,14 +111,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
       if (isAdmin) {
         final overview = await widget.api.loadAdminProgress();
-        final chats = await widget.api
-            .loadAdminChats()
-            .catchError((_) => <AdminChatItem>[]);
+        final chatStudents = await widget.api
+            .loadAdminChatStudents()
+            .catchError((_) => <AdminChatStudentSummary>[]);
         if (!mounted || request != _request) return;
         setState(() {
           _isAdmin = true;
           _adminOverview = overview;
-          _adminChats = chats;
+          _adminChatStudents = chatStudents;
           _loading = false;
         });
         return;
@@ -79,10 +126,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
       final learningRequest = widget.api
           .loadLearningProgress()
-          .then<LearningProgress?>((value) => value, onError: (Object _) => null);
+          .then<LearningProgress?>(
+            (value) => value,
+            onError: (Object _) => null,
+          );
       final gapRequest = widget.api
           .loadKnowledgeGaps()
-          .then<KnowledgeGapAnalysis?>((value) => value, onError: (Object _) => null);
+          .then<KnowledgeGapAnalysis?>(
+            (value) => value,
+            onError: (Object _) => null,
+          );
       final progress = await widget.api.loadProgress();
       final learning = await learningRequest;
       final gaps = await gapRequest;
@@ -112,7 +165,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   Widget _buildAdminView(BuildContext context) {
     final theme = Theme.of(context);
     final overview = _adminOverview;
-    final chats = _adminChats ?? [];
+    final chatStudents = _adminChatStudents ?? [];
 
     final filteredStudents = (overview?.students ?? []).where((s) {
       final q = _studentFilter.toLowerCase().trim();
@@ -127,13 +180,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
           school.contains(q);
     }).toList();
 
-    final filteredChats = chats.where((c) {
+    final filteredChatStudents = chatStudents.where((student) {
       final q = _chatFilter.toLowerCase().trim();
       if (q.isEmpty) return true;
-      return c.question.toLowerCase().contains(q) ||
-          c.answer.toLowerCase().contains(q) ||
-          c.userEmail.toLowerCase().contains(q) ||
-          (c.userName ?? '').toLowerCase().contains(q);
+      return student.studentEmail.toLowerCase().contains(q) ||
+          (student.studentName ?? '').toLowerCase().contains(q);
     }).toList();
 
     return RefreshIndicator(
@@ -177,12 +228,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
               ButtonSegment(
                 value: 0,
                 icon: const Icon(Icons.people_alt_outlined),
-                label: Text('Tiến độ học viên (${overview?.totalStudents ?? 0})'),
+                label: Text(
+                  'Tiến độ học viên (${overview?.totalStudents ?? 0})',
+                ),
               ),
               ButtonSegment(
                 value: 1,
                 icon: const Icon(Icons.forum_outlined),
-                label: Text('Quản lý đoạn chat (${chats.length})'),
+                label: Text('Quản lý đoạn chat (${chatStudents.length})'),
               ),
             ],
             selected: {_adminTab},
@@ -226,6 +279,22 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () => _exportStudents('xlsx'),
+                  icon: const Icon(Icons.table_view_outlined),
+                  label: const Text('Xuất Excel'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _exportStudents('csv'),
+                  icon: const Icon(Icons.description_outlined),
+                  label: const Text('Xuất CSV'),
+                ),
+              ],
+            ),
             const SizedBox(height: 16),
             TextField(
               decoration: InputDecoration(
@@ -257,173 +326,194 @@ class _ProgressScreenState extends State<ProgressScreen> {
               for (final student in filteredStudents)
                 Card(
                   margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor:
-                                  theme.colorScheme.primaryContainer,
-                              child: Text(
-                                (student.fullName?.isNotEmpty == true
-                                        ? student.fullName![0]
-                                        : student.email[0])
-                                    .toUpperCase(),
-                                style: TextStyle(
-                                  color: theme.colorScheme.onPrimaryContainer,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    student.fullName?.isNotEmpty == true
-                                        ? student.fullName!
-                                        : student.email,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Lớp: ${student.className ?? "—"} • Trường: ${student.schoolName ?? "—"}',
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  Text(
-                                    student.email,
-                                    style: theme.textTheme.bodySmall?.copyWith(
-                                      color: theme.colorScheme.outline,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: (student.accuracyPercent >= 70
-                                        ? Colors.green
-                                        : Colors.orange)
-                                    .withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Text(
-                                '${student.accuracyPercent}% đúng',
-                                style: TextStyle(
-                                  color: student.accuracyPercent >= 70
-                                      ? Colors.green.shade800
-                                      : Colors.orange.shade800,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 6,
-                          children: [
-                            Chip(
-                              visualDensity: VisualDensity.compact,
-                              avatar: const Icon(Icons.assignment, size: 14),
-                              label: Text(
-                                '${student.completedQuizzes} bài test (${student.correctAnswers}/${student.totalQuestions} câu)',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Chip(
-                              visualDensity: VisualDensity.compact,
-                              avatar: const Icon(Icons.style, size: 14),
-                              label: Text(
-                                '${student.reviewedCards} thẻ ôn',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            Chip(
-                              visualDensity: VisualDensity.compact,
-                              avatar: const Icon(Icons.record_voice_over, size: 14),
-                              label: Text(
-                                '${student.speakingCount} lượt nói',
-                                style: const TextStyle(fontSize: 12),
-                              ),
-                            ),
-                            if (student.difficultCards > 0)
-                              Chip(
-                                visualDensity: VisualDensity.compact,
-                                avatar: const Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 14,
-                                  color: Colors.red,
-                                ),
-                                label: Text(
-                                  '${student.difficultCards} thẻ khó',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.red,
+                  child: InkWell(
+                    onTap: () => _showStudentDetail(student),
+                    borderRadius: BorderRadius.circular(12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                backgroundColor:
+                                    theme.colorScheme.primaryContainer,
+                                child: Text(
+                                  (student.fullName?.isNotEmpty == true
+                                          ? student.fullName![0]
+                                          : student.email[0])
+                                      .toUpperCase(),
+                                  style: TextStyle(
+                                    color: theme.colorScheme.onPrimaryContainer,
+                                    fontWeight: FontWeight.bold,
                                   ),
                                 ),
                               ),
-                          ],
-                        ),
-                        if (student.recentQuizzes.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Divider(
-                            height: 1,
-                            color: theme.colorScheme.outlineVariant.withValues(
-                              alpha: 0.5,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'Bài nộp gần đây:',
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          for (final q in student.recentQuizzes.take(2))
-                            Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle_outline,
-                                    size: 14,
-                                    color: Colors.green,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '${q["correct"]}/${q["total"]} câu đúng',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  const Spacer(),
-                                  if (q["submitted_at"] != null)
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      _date(DateTime.parse(q["submitted_at"] as String)),
-                                      style: theme.textTheme.bodySmall?.copyWith(
-                                        fontSize: 11,
-                                        color: theme.colorScheme.outline,
+                                      student.fullName?.isNotEmpty == true
+                                          ? student.fullName!
+                                          : student.email,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
                                       ),
                                     ),
-                                ],
+                                    Text(
+                                      'Lớp: ${student.className ?? "—"} • Trường: ${student.schoolName ?? "—"}',
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
+                                    ),
+                                    Text(
+                                      student.email,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme.colorScheme.outline,
+                                            fontSize: 11,
+                                          ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color:
+                                      (student.accuracyPercent >= 70
+                                              ? Colors.green
+                                              : Colors.orange)
+                                          .withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${student.accuracyPercent}% đúng',
+                                  style: TextStyle(
+                                    color: student.accuracyPercent >= 70
+                                        ? Colors.green.shade800
+                                        : Colors.orange.shade800,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          Visibility(
+                            visible: false,
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 6,
+                              children: [
+                                Chip(
+                                  visualDensity: VisualDensity.compact,
+                                  avatar: const Icon(
+                                    Icons.assignment,
+                                    size: 14,
+                                  ),
+                                  label: Text(
+                                    '${student.completedQuizzes} bài test (${student.correctAnswers}/${student.totalQuestions} câu)',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                Chip(
+                                  visualDensity: VisualDensity.compact,
+                                  avatar: const Icon(Icons.style, size: 14),
+                                  label: Text(
+                                    '${student.reviewedCards} thẻ ôn',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                Chip(
+                                  visualDensity: VisualDensity.compact,
+                                  avatar: const Icon(
+                                    Icons.record_voice_over,
+                                    size: 14,
+                                  ),
+                                  label: Text(
+                                    '${student.speakingCount} lượt nói',
+                                    style: const TextStyle(fontSize: 12),
+                                  ),
+                                ),
+                                if (student.difficultCards > 0)
+                                  Chip(
+                                    visualDensity: VisualDensity.compact,
+                                    avatar: const Icon(
+                                      Icons.warning_amber_rounded,
+                                      size: 14,
+                                      color: Colors.red,
+                                    ),
+                                    label: Text(
+                                      '${student.difficultCards} thẻ khó',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.red,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          if (student.recentQuizzes.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Divider(
+                              height: 1,
+                              color: theme.colorScheme.outlineVariant
+                                  .withValues(alpha: 0.5),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'Bài nộp gần đây:',
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
+                            for (final q in student.recentQuizzes.take(2))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.check_circle_outline,
+                                      size: 14,
+                                      color: Colors.green,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '${q["correct"]}/${q["total"]} câu đúng',
+                                      style: const TextStyle(fontSize: 12),
+                                    ),
+                                    const Spacer(),
+                                    if (q["submitted_at"] != null)
+                                      Text(
+                                        _date(
+                                          DateTime.parse(
+                                            q["submitted_at"] as String,
+                                          ),
+                                        ),
+                                        style: theme.textTheme.bodySmall
+                                            ?.copyWith(
+                                              fontSize: 11,
+                                              color: theme.colorScheme.outline,
+                                            ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -432,7 +522,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
             TextField(
               decoration: InputDecoration(
                 prefixIcon: const Icon(Icons.search),
-                hintText: 'Tìm nội dung câu hỏi hoặc email học viên…',
+                hintText: 'Tìm theo tên hoặc email học viên…',
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
                   vertical: 12,
@@ -450,178 +540,219 @@ class _ProgressScreenState extends State<ProgressScreen> {
               onChanged: (v) => setState(() => _chatFilter = v),
             ),
             const SizedBox(height: 12),
-            if (filteredChats.isEmpty)
+            if (filteredChatStudents.isEmpty)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 32),
                 child: Center(child: Text('Chưa có đoạn chat nào được lưu')),
               )
             else
-              for (final chat in filteredChats)
+              for (final student in filteredChatStudents)
                 Card(
-                  margin: const EdgeInsets.only(bottom: 14),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Column(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    key: Key('admin-chat-student-${student.studentId}'),
+                    onTap: () => _showStudentChatHistory(student),
+                    leading: CircleAvatar(
+                      child: Text(
+                        (student.studentName?.isNotEmpty == true
+                                ? student.studentName!
+                                : student.studentEmail)
+                            .substring(0, 1)
+                            .toUpperCase(),
+                      ),
+                    ),
+                    title: Text(
+                      student.studentName?.isNotEmpty == true
+                          ? student.studentName!
+                          : student.studentEmail,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          children: [
-                            Icon(
-                              Icons.person_pin,
-                              size: 18,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                chat.userName?.isNotEmpty == true
-                                    ? '${chat.userName} (${chat.userEmail})'
-                                    : chat.userEmail,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                chat.language.toUpperCase(),
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: theme.colorScheme.onSecondaryContainer,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _date(chat.createdAt),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 11,
-                                color: theme.colorScheme.outline,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primaryContainer.withValues(
-                              alpha: 0.35,
-                            ),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.help_outline,
-                                size: 16,
-                                color: theme.colorScheme.primary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SelectableText(
-                                  chat.question,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerLow,
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(
-                              color: theme.colorScheme.outlineVariant.withValues(
-                                alpha: 0.6,
-                              ),
-                            ),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                Icons.auto_awesome,
-                                size: 16,
-                                color: theme.colorScheme.tertiary,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: SelectableText(
-                                  chat.answer,
-                                  style: const TextStyle(fontSize: 13),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (chat.citations.isNotEmpty) ...[
-                          const SizedBox(height: 8),
-                          Wrap(
-                            spacing: 6,
-                            runSpacing: 4,
-                            children: [
-                              for (final cit in chat.citations)
-                                Chip(
-                                  visualDensity: VisualDensity.compact,
-                                  avatar: const Icon(Icons.menu_book, size: 12),
-                                  label: Text(
-                                    cit['printed_page'] != null
-                                        ? 'SGK trang ${cit["printed_page"]}'
-                                        : 'PDF trang ${cit["pdf_page"]}',
-                                    style: const TextStyle(fontSize: 11),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ],
-                        const SizedBox(height: 4),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.copy_rounded, size: 14),
-                              tooltip: 'Sao chép đoạn chat',
-                              visualDensity: VisualDensity.compact,
-                              onPressed: () {
-                                Clipboard.setData(
-                                  ClipboardData(
-                                    text:
-                                        'Học sinh: ${chat.question}\nAI Tutor: ${chat.answer}',
-                                  ),
-                                );
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Đã sao chép đoạn chat'),
-                                    duration: Duration(seconds: 1),
-                                  ),
-                                );
-                              },
-                            ),
-                          ],
+                        if (student.studentName?.isNotEmpty == true)
+                          Text(student.studentEmail),
+                        Text(
+                          '${student.exchangeCount} lượt hỏi đáp • Hoạt động ${_date(student.lastActivityAt)}',
                         ),
                       ],
                     ),
+                    trailing: const Icon(Icons.chevron_right),
                   ),
                 ),
           ],
         ],
+      ),
+    );
+  }
+
+  Future<void> _showStudentDetail(
+    AdminStudentProgress student,
+  ) => showDialog<void>(
+    context: context,
+    builder: (context) => AlertDialog(
+      title: const Text('Chi tiết tiến độ'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              student.fullName?.isNotEmpty == true
+                  ? student.fullName!
+                  : student.email,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Text(student.email),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Chip(
+                  label: Text(
+                    '${student.completedQuizzes} bài test (${student.correctAnswers}/${student.totalQuestions} câu)',
+                  ),
+                ),
+                Chip(label: Text('${student.reviewedCards} thẻ ôn')),
+                Chip(label: Text('${student.dueCards} thẻ đến hạn')),
+                Chip(label: Text('${student.difficultCards} thẻ khó')),
+                Chip(label: Text('${student.speakingCount} lượt nói')),
+              ],
+            ),
+            if (student.recentQuizzes.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Text(
+                'Bài kiểm tra gần đây',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              for (final quiz in student.recentQuizzes)
+                Text('${quiz["correct"]}/${quiz["total"]} câu đúng'),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Đóng'),
+        ),
+      ],
+    ),
+  );
+
+  Future<void> _showStudentChatHistory(AdminChatStudentSummary student) async {
+    late final List<AdminChatItem> exchanges;
+    try {
+      exchanges = await widget.api.loadAdminStudentChats(student.studentId);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Không thể tải lịch sử chat của học viên lúc này.'),
+          ),
+        );
+      }
+      return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 680, maxHeight: 720),
+          child: Column(
+            children: [
+              ListTile(
+                title: const Text(
+                  'Toàn bộ lịch sử hội thoại',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(student.studentEmail),
+                trailing: IconButton(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () =>
+                          _exportStudentChats(student.studentId, 'docx'),
+                      child: const Text('Xuất DOCX'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () =>
+                          _exportStudentChats(student.studentId, 'xlsx'),
+                      child: const Text('Xuất Excel'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () =>
+                          _exportStudentChats(student.studentId, 'csv'),
+                      child: const Text('Xuất CSV'),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: exchanges.length,
+                  itemBuilder: (context, index) {
+                    final exchange = exchanges[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: Card(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .primaryContainer,
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: SelectableText(exchange.question),
+                              ),
+                            ),
+                          ),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Card(
+                              child: Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: SelectableText(exchange.answer),
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Text(
+                              _date(exchange.createdAt),
+                              key: Key('admin-chat-time-${exchange.id}'),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .outline,
+                                  ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -654,7 +785,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     height: 4,
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
+                      color: theme.colorScheme.onSurfaceVariant.withValues(
+                        alpha: 0.3,
+                      ),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -662,7 +795,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(8),
@@ -678,7 +814,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     ),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.15),
                         borderRadius: BorderRadius.circular(8),
@@ -716,7 +855,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     color: theme.colorScheme.surfaceContainerLow,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: theme.colorScheme.outlineVariant.withValues(alpha: 0.6),
+                      color: theme.colorScheme.outlineVariant.withValues(
+                        alpha: 0.6,
+                      ),
                     ),
                   ),
                   child: Column(
@@ -740,15 +881,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        item.summary,
-                        style: theme.textTheme.bodyMedium,
-                      ),
+                      Text(item.summary, style: theme.textTheme.bodyMedium),
                       const SizedBox(height: 10),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                          color: theme.colorScheme.primary.withValues(
+                            alpha: 0.1,
+                          ),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
@@ -773,20 +916,29 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     onPressed: () async {
                       Navigator.pop(ctx);
                       try {
-                        final session = await widget.api.createRemedialQuiz(item.conceptKey);
+                        final session = await widget.api.createRemedialQuiz(
+                          item.conceptKey,
+                        );
                         if (!mounted) return;
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (context) => Scaffold(
-                              appBar: AppBar(title: Text('Luyện tập: ${item.conceptName}')),
-                              body: QuizScreen(api: widget.api, initialSession: session),
+                              appBar: AppBar(
+                                title: Text('Luyện tập: ${item.conceptName}'),
+                              ),
+                              body: QuizScreen(
+                                api: widget.api,
+                                initialSession: session,
+                              ),
                             ),
                           ),
                         );
                       } catch (e) {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Không thể tạo bài luyện tập: $e')),
+                            SnackBar(
+                              content: Text('Không thể tạo bài luyện tập: $e'),
+                            ),
                           );
                         }
                       }
@@ -803,11 +955,16 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     onPressed: () {
                       Navigator.pop(ctx);
                       if (widget.onNavigateTab != null) {
-                        widget.onNavigateTab!(1, initialPrompt: item.suggestedPrompt);
+                        widget.onNavigateTab!(
+                          1,
+                          initialPrompt: item.suggestedPrompt,
+                        );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Chuyển sang tab Tutor để hỏi: "${item.suggestedPrompt}"'),
+                            content: Text(
+                              'Chuyển sang tab Tutor để hỏi: "${item.suggestedPrompt}"',
+                            ),
                           ),
                         );
                       }
@@ -822,7 +979,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
-  Widget _buildKnowledgeGapSection(BuildContext context, KnowledgeGapAnalysis gaps) {
+  Widget _buildKnowledgeGapSection(
+    BuildContext context,
+    KnowledgeGapAnalysis gaps,
+  ) {
     final theme = Theme.of(context);
     return Card(
       child: Padding(
@@ -832,7 +992,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.psychology_alt_outlined, color: theme.colorScheme.primary),
+                Icon(
+                  Icons.psychology_alt_outlined,
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -843,7 +1006,10 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: gaps.weakConceptsCount > 0
                         ? Colors.orange.withValues(alpha: 0.15)
@@ -857,7 +1023,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: gaps.weakConceptsCount > 0 ? Colors.orange.shade800 : Colors.green.shade800,
+                      color: gaps.weakConceptsCount > 0
+                          ? Colors.orange.shade800
+                          : Colors.green.shade800,
                     ),
                   ),
                 ),
@@ -869,7 +1037,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 child: Row(
                   children: [
-                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 20),
+                    const Icon(
+                      Icons.check_circle_outline,
+                      color: Colors.green,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
@@ -889,7 +1061,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                     final pct = (item.masteryScore * 100).round();
                     final statusColor = item.masteryScore < 0.50
                         ? Colors.red
-                        : (item.masteryScore < 0.70 ? Colors.orange : Colors.green);
+                        : (item.masteryScore < 0.70
+                              ? Colors.orange
+                              : Colors.green);
 
                     return InkWell(
                       onTap: () => _showRemedialSheet(item),
@@ -902,9 +1076,14 @@ class _ProgressScreenState extends State<ProgressScreen> {
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.surfaceContainerHighest,
+                                    color: theme
+                                        .colorScheme
+                                        .surfaceContainerHighest,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
@@ -946,7 +1125,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
                                 value: item.masteryScore.clamp(0.0, 1.0),
-                                backgroundColor: theme.colorScheme.surfaceContainerHighest,
+                                backgroundColor:
+                                    theme.colorScheme.surfaceContainerHighest,
                                 color: statusColor,
                                 minHeight: 6,
                               ),

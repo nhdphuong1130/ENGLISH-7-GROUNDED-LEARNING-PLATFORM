@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:english7_mobile/app/student_api.dart';
@@ -173,4 +175,186 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Chưa có bài kiểm tra đã nộp'), findsOneWidget);
   });
+
+  testWidgets(
+    'admin profile renders all students progress overview and chat logs',
+    (tester) async {
+      String? exportedFilename;
+      Uint8List? exportedBytes;
+      final api = ProgressApi()
+        ..profile = const StudentProfile(
+          id: 'admin-1',
+          email: 'admin@example.com',
+          role: 'admin',
+        )
+        ..adminProgress = const AdminProgressOverview(
+          totalStudents: 2,
+          totalQuizzes: 5,
+          averageAccuracy: 85,
+          students: [
+            AdminStudentProgress(
+              id: 's-1',
+              email: 'student1@example.com',
+              fullName: 'Nguyen Van A',
+              schoolName: 'THCS Nguyen Du',
+              className: '7A1',
+              completedQuizzes: 3,
+              totalQuestions: 30,
+              correctAnswers: 26,
+              accuracyPercent: 87,
+              reviewedCards: 20,
+              dueCards: 2,
+              difficultCards: 1,
+              speakingCount: 5,
+            ),
+          ],
+        )
+        ..adminChats = [
+          AdminChatItem(
+            id: 'chat-1',
+            conversationId: 'conversation-1',
+            userId: 's-1',
+            userEmail: 'student1@example.com',
+            userName: 'Nguyen Van A',
+            question: 'Làm thế nào để học tốt thì hiện tại đơn?',
+            answer: 'Em nên ôn lại công thức trong Unit 1 trang 10.',
+            language: 'vi',
+            createdAt: DateTime.utc(2026, 10, 21, 10, 30),
+          ),
+          AdminChatItem(
+            id: 'chat-2',
+            conversationId: 'conversation-1',
+            userId: 's-1',
+            userEmail: 'student1@example.com',
+            userName: 'Nguyen Van A',
+            question: 'Cho em một ví dụ nhé?',
+            answer: 'I go to school every day.',
+            language: 'vi',
+            createdAt: DateTime.utc(2026, 10, 21, 10, 31),
+          ),
+          AdminChatItem(
+            id: 'chat-3',
+            conversationId: 'conversation-2',
+            userId: 's-1',
+            userEmail: 'student1@example.com',
+            userName: 'Nguyen Van A',
+            question: 'Câu ở đoạn chat mới?',
+            answer: 'Vẫn thuộc lịch sử của cùng tài khoản.',
+            language: 'vi',
+            createdAt: DateTime.utc(2026, 10, 21, 10, 32),
+          ),
+        ]
+        ..adminChatStudents = [
+          AdminChatStudentSummary(
+            studentId: 's-1',
+            studentEmail: 'student1@example.com',
+            studentName: 'Nguyen Van A',
+            exchangeCount: 3,
+            lastActivityAt: DateTime.utc(2026, 10, 21, 10, 32),
+          ),
+        ]
+        ..adminStudentChatDetails['s-1'] = [
+          AdminChatItem(
+            id: 'chat-1',
+            conversationId: 'conversation-1',
+            userId: 's-1',
+            userEmail: 'student1@example.com',
+            userName: 'Nguyen Van A',
+            question: 'Làm thế nào để học tốt thì hiện tại đơn?',
+            answer: 'Em nên ôn lại công thức trong Unit 1 trang 10.',
+            language: 'vi',
+            createdAt: DateTime.utc(2026, 10, 21, 10, 30),
+          ),
+          AdminChatItem(
+            id: 'chat-2',
+            conversationId: 'conversation-1',
+            userId: 's-1',
+            userEmail: 'student1@example.com',
+            userName: 'Nguyen Van A',
+            question: 'Cho em một ví dụ nhé?',
+            answer: 'I go to school every day.',
+            language: 'vi',
+            createdAt: DateTime.utc(2026, 10, 21, 10, 31),
+          ),
+          AdminChatItem(
+            id: 'chat-3',
+            conversationId: 'conversation-2',
+            userId: 's-1',
+            userEmail: 'student1@example.com',
+            userName: 'Nguyen Van A',
+            question: 'Câu ở đoạn chat mới?',
+            answer: 'Vẫn thuộc lịch sử của cùng tài khoản.',
+            language: 'vi',
+            createdAt: DateTime.utc(2026, 10, 21, 10, 32),
+          ),
+        ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ProgressScreen(
+              api: api,
+              active: true,
+              exportHandler: (filename, bytes) async {
+                exportedFilename = filename;
+                exportedBytes = bytes;
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verify Admin Header & Tabs
+      expect(find.text('Quản trị học tập & Chat'), findsOneWidget);
+      expect(find.text('Tiến độ học viên (2)'), findsOneWidget);
+      expect(find.text('Quản lý đoạn chat (1)'), findsOneWidget);
+
+      // Verify Student card
+      expect(find.text('Nguyen Van A'), findsOneWidget);
+      expect(find.text('87% đúng'), findsOneWidget);
+      expect(find.text('3 bài test (26/30 câu)'), findsNothing);
+      await tester.tap(find.text('Xuất Excel'));
+      await tester.pumpAndSettle();
+      expect(exportedFilename, 'student-progress.xlsx');
+      expect(exportedBytes, isNotEmpty);
+
+      await tester.tap(find.text('Nguyen Van A'));
+      await tester.pumpAndSettle();
+      expect(find.text('Chi tiết tiến độ'), findsOneWidget);
+      expect(find.text('3 bài test (26/30 câu)'), findsOneWidget);
+      expect(find.text('20 thẻ ôn'), findsOneWidget);
+      expect(find.text('5 lượt nói'), findsOneWidget);
+      await tester.tap(find.text('Đóng'));
+      await tester.pumpAndSettle();
+
+      // Switch to Chat Logs tab
+      await tester.tap(find.text('Quản lý đoạn chat (1)'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('3 lượt hỏi đáp'), findsOneWidget);
+      expect(
+        find.text('Làm thế nào để học tốt thì hiện tại đơn?'),
+        findsNothing,
+      );
+      expect(find.text('Cho em một ví dụ nhé?'), findsNothing);
+      expect(find.text('Câu ở đoạn chat mới?'), findsNothing);
+      await tester.tap(find.text('Nguyen Van A'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Xuất DOCX'));
+      await tester.pumpAndSettle();
+      expect(exportedFilename, 'student-chat-s-1.docx');
+      expect(
+        find.text('Làm thế nào để học tốt thì hiện tại đơn?'),
+        findsOneWidget,
+      );
+      expect(find.text('Cho em một ví dụ nhé?'), findsOneWidget);
+      expect(find.text('I go to school every day.'), findsOneWidget);
+      expect(find.text('Câu ở đoạn chat mới?'), findsOneWidget);
+      expect(find.byKey(const Key('admin-chat-time-chat-1')), findsOneWidget);
+      expect(find.byKey(const Key('admin-chat-time-chat-3')), findsOneWidget);
+      expect(find.text('conversation-1'), findsNothing);
+      expect(find.text('conversation-2'), findsNothing);
+    },
+  );
 }

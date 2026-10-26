@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Automatic AI-generated IPA for personal flashcards and personal speaking
+  vocabulary, with regeneration when the English text changes.
+- Admin student drill-down and account-grouped AI Tutor monitoring: one row per
+  learner opens a continuous timestamped history across all conversations, with
+  CSV/XLSX/DOCX export through the Android share sheet.
 - Persistent, owner-scoped AI Tutor conversations with history listing,
   reopening, deletion, learner-selected forms of address, and grounded
   multi-turn context.
@@ -30,6 +35,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Made the AI Tutor header responsive on narrow phones and routed greetings,
+  thanks, and farewells through a safe bilingual social-turn mode instead of
+  the hardcoded out-of-scope refusal.
+- Android SIM Gateway failures now return a real service error and never expose
+  or return a development OTP as if an SMS had been delivered.
 - Tutor responses now use a warm, age-appropriate teaching style while using
   only verified *Tiếng Anh 7 Global Success* evidence. Conversations are
   limited to 20 per learner and 50 exchanges each, retain only 90 days, and

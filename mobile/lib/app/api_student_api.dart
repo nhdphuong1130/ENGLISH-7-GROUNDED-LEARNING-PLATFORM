@@ -37,6 +37,55 @@ class ApiStudentApi with ApiLearning implements StudentApi {
   }
 
   @override
+  Future<List<AdminChatStudentSummary>> loadAdminChatStudents() async {
+    final response = await _client.getJson('/api/v1/admin/chat-students');
+    final items = response.body['items'] as List? ?? [];
+    return items
+        .map(
+          (item) => AdminChatStudentSummary.fromJson(
+            Map<String, dynamic>.from(item as Map),
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<List<AdminChatItem>> loadAdminStudentChats(String studentId) async {
+    final response = await _client.getJson(
+      '/api/v1/admin/chat-students/${Uri.encodeComponent(studentId)}',
+    );
+    final body = response.body;
+    final studentEmail = body['student_email'] as String;
+    final studentName = body['student_name'] as String?;
+    final exchanges = body['exchanges'] as List? ?? [];
+    return exchanges.map((value) {
+      final item = Map<String, dynamic>.from(value as Map);
+      return AdminChatItem(
+        id: item['id'] as String,
+        conversationId: item['conversation_id'] as String? ?? '',
+        userId: studentId,
+        userEmail: studentEmail,
+        userName: studentName,
+        question: item['question'] as String,
+        answer: item['answer'] as String,
+        language: item['language'] as String,
+        citations: (item['citations'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        createdAt: DateTime.parse(item['created_at'] as String),
+      );
+    }).toList();
+  }
+
+  @override
+  Future<Uint8List> exportAdminStudentChats(
+    String studentId,
+    String format,
+  ) => _client.downloadBytes(
+    '/api/v1/admin/chat-students/${Uri.encodeComponent(studentId)}/export?format=${Uri.encodeQueryComponent(format)}',
+  );
+
+  @override
   Future<List<AdminChatItem>> loadAdminChats() async {
     final response = await _client.getJson('/api/v1/admin/chats');
     final items = response.body['items'] as List? ?? [];
@@ -44,6 +93,50 @@ class ApiStudentApi with ApiLearning implements StudentApi {
         .map((e) => AdminChatItem.fromJson(Map<String, dynamic>.from(e as Map)))
         .toList();
   }
+
+  @override
+  Future<List<AdminChatItem>> loadAdminConversation(
+    String conversationId,
+  ) async {
+    final response = await _client.getJson(
+      '/api/v1/admin/conversations/${Uri.encodeComponent(conversationId)}',
+    );
+    final body = response.body;
+    final studentId = body['student_id'] as String;
+    final studentEmail = body['student_email'] as String;
+    final studentName = body['student_name'] as String?;
+    final exchanges = body['exchanges'] as List? ?? [];
+    return exchanges.map((value) {
+      final item = Map<String, dynamic>.from(value as Map);
+      return AdminChatItem(
+        id: item['id'] as String,
+        conversationId: conversationId,
+        userId: studentId,
+        userEmail: studentEmail,
+        userName: studentName,
+        question: item['question'] as String,
+        answer: item['answer'] as String,
+        language: item['language'] as String,
+        citations: (item['citations'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        createdAt: DateTime.parse(item['created_at'] as String),
+      );
+    }).toList();
+  }
+
+  @override
+  Future<Uint8List> exportAdminStudents(String format) => _client.downloadBytes(
+    '/api/v1/admin/students/export?format=${Uri.encodeQueryComponent(format)}',
+  );
+
+  @override
+  Future<Uint8List> exportAdminConversation(
+    String conversationId,
+    String format,
+  ) => _client.downloadBytes(
+    '/api/v1/admin/conversations/${Uri.encodeComponent(conversationId)}/export?format=${Uri.encodeQueryComponent(format)}',
+  );
 
   final ApiClient _client;
   final TokenStore _tokens;
@@ -597,22 +690,24 @@ class ApiStudentApi with ApiLearning implements StudentApi {
   Future<KnowledgeGapAnalysis> loadKnowledgeGaps() async {
     final response = await _client.getJson('/api/v1/quizzes/knowledge-gap');
     final body = response.body;
-    final gapsList = (body['gaps'] as List<dynamic>? ?? const []).map((raw) {
-      final item = raw as Map<String, dynamic>;
-      return KnowledgeGapItem(
-        conceptKey: item['concept_key'] as String,
-        conceptName: item['concept_name'] as String,
-        category: item['category'] as String,
-        unitNumber: item['unit_number'] as int,
-        unitTitle: item['unit_title'] as String,
-        masteryScore: (item['mastery_score'] as num).toDouble(),
-        totalAttempts: item['total_attempts'] as int,
-        incorrectCount: item['incorrect_count'] as int,
-        summary: item['summary'] as String,
-        textbookCitation: item['textbook_citation'] as String,
-        suggestedPrompt: item['suggested_prompt'] as String,
-      );
-    }).toList(growable: false);
+    final gapsList = (body['gaps'] as List<dynamic>? ?? const [])
+        .map((raw) {
+          final item = raw as Map<String, dynamic>;
+          return KnowledgeGapItem(
+            conceptKey: item['concept_key'] as String,
+            conceptName: item['concept_name'] as String,
+            category: item['category'] as String,
+            unitNumber: item['unit_number'] as int,
+            unitTitle: item['unit_title'] as String,
+            masteryScore: (item['mastery_score'] as num).toDouble(),
+            totalAttempts: item['total_attempts'] as int,
+            incorrectCount: item['incorrect_count'] as int,
+            summary: item['summary'] as String,
+            textbookCitation: item['textbook_citation'] as String,
+            suggestedPrompt: item['suggested_prompt'] as String,
+          );
+        })
+        .toList(growable: false);
 
     return KnowledgeGapAnalysis(
       totalTestedConcepts: body['total_tested_concepts'] as int,

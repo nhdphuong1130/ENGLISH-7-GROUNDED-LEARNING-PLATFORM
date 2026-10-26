@@ -2,9 +2,26 @@ import 'dart:typed_data';
 
 import 'package:english7_mobile/app/student_api.dart';
 import 'package:english7_mobile/features/tutor/image_selector.dart';
+
 import 'fake_learning.dart';
 
 class FakeStudentApi with EmptyLearning implements StudentApi {
+  @override
+  Future<Uint8List> exportAdminStudents(String format) async =>
+      Uint8List.fromList([80, 75]);
+
+  @override
+  Future<Uint8List> exportAdminConversation(
+    String conversationId,
+    String format,
+  ) async => Uint8List.fromList([80, 75]);
+
+  @override
+  Future<Uint8List> exportAdminStudentChats(
+    String studentId,
+    String format,
+  ) async => Uint8List.fromList([80, 75]);
+
   @override
   Future<StudentProgress> loadProgress() async =>
       const StudentProgress(0, 0, 0, []);
@@ -16,12 +33,32 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
     students: [],
   );
   List<AdminChatItem> adminChats = [];
+  List<AdminChatStudentSummary> adminChatStudents = [];
+  final Map<String, List<AdminChatItem>> adminStudentChatDetails = {};
+  final Map<String, List<AdminChatItem>> adminConversationDetails = {};
 
   @override
   Future<AdminProgressOverview> loadAdminProgress() async => adminProgress;
 
   @override
   Future<List<AdminChatItem>> loadAdminChats() async => adminChats;
+
+  @override
+  Future<List<AdminChatStudentSummary>> loadAdminChatStudents() async =>
+      adminChatStudents;
+
+  @override
+  Future<List<AdminChatItem>> loadAdminStudentChats(String studentId) async =>
+      adminStudentChatDetails[studentId] ?? const [];
+
+  @override
+  Future<List<AdminChatItem>> loadAdminConversation(
+    String conversationId,
+  ) async =>
+      adminConversationDetails[conversationId] ??
+      adminChats
+          .where((chat) => chat.conversationId == conversationId)
+          .toList();
   static const defaultProfile = StudentProfile(
     id: 'user-1',
     email: 'student@example.com',
@@ -30,6 +67,7 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
 
   bool refuseTutor = false;
   bool conversationFull = false;
+  Object? tutorError;
   final tutorQueries = <TutorQuery>[];
   final tutorConversations = <TutorConversationSummary>[];
   final tutorConversationDetails = <String, TutorConversation>{};
@@ -227,6 +265,7 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
   @override
   Future<TutorResult> askTutor(TutorQuery query) async {
     tutorQueries.add(query);
+    if (tutorError != null) throw tutorError!;
     if (refuseTutor) throw const TutorRefusal('out_of_scope');
     return TutorResult(
       query.language == TutorLanguage.vietnamese
@@ -272,9 +311,7 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
       List.unmodifiable(tutorConversations);
 
   @override
-  Future<TutorConversation> loadTutorConversation(
-    String conversationId,
-  ) async {
+  Future<TutorConversation> loadTutorConversation(String conversationId) async {
     final conversation = tutorConversationDetails[conversationId];
     if (conversation == null) throw const TutorConversationUnavailable();
     return conversation;
@@ -359,7 +396,8 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
               incorrectCount: 3,
               summary: 'Thì hiện tại đơn diễn tả thói quen hoặc sở thích.',
               textbookCitation: 'SGK Tiếng Anh 7 Unit 1, Trang 11',
-              suggestedPrompt: 'Giải thích chi tiết về thì Hiện tại đơn trong Unit 1',
+              suggestedPrompt:
+                  'Giải thích chi tiết về thì Hiện tại đơn trong Unit 1',
             ),
           ],
         );
@@ -368,18 +406,13 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
   @override
   Future<QuizSession> createRemedialQuiz(String conceptKey) async {
     lastRemedialConcept = conceptKey;
-    return const QuizSession(
-      'remedial-quiz-1',
-      15,
-      'medium',
-      [
-        QuizQuestion(
-          'remedial-q1',
-          'Practice present simple question',
-          options: ['True', 'False'],
-        ),
-      ],
-    );
+    return const QuizSession('remedial-quiz-1', 15, 'medium', [
+      QuizQuestion(
+        'remedial-q1',
+        'Practice present simple question',
+        options: ['True', 'False'],
+      ),
+    ]);
   }
 }
 
