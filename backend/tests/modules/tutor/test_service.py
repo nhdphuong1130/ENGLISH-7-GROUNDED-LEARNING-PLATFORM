@@ -130,6 +130,27 @@ def test_greeting_without_textbook_context_uses_ai_as_a_social_turn() -> None:
     assert provider.requests[0].evidence == ()
 
 
+def test_vietnamese_greeting_skips_irrelevant_textbook_retrieval() -> None:
+    provider = FakeProvider(
+        lambda request: AIResponse(
+            "Chào bạn! Hôm nay bạn muốn trò chuyện hay học phần nào?",
+            request.language,
+            (),
+            ScopeStatus.SOCIAL,
+        )
+    )
+    retrieval = FakeRetrieval(grounded_context())
+    service = TutorService(retrieval, provider)
+
+    answer = service.ask("chào bạn", Language.VIETNAMESE)
+
+    assert answer.scope_status is ScopeStatus.SOCIAL
+    assert answer.answer.startswith("Chào bạn!")
+    assert provider.requests[0].social_turn is True
+    assert provider.requests[0].evidence == ()
+    assert retrieval.queries == []
+
+
 def test_unrelated_question_without_context_remains_out_of_scope() -> None:
     provider = FakeProvider(lambda _: pytest.fail("provider must not be called"))
     service = TutorService(FakeRetrieval(GroundedContext((), ())), provider)

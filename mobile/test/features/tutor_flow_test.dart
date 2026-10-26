@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:english7_mobile/app/english7_app.dart';
 import 'package:english7_mobile/api/api_error.dart';
 import 'package:flutter/material.dart';
@@ -80,9 +82,28 @@ void main() {
     expect(find.textContaining('không có trong phạm vi SGK'), findsOneWidget);
   });
 
-  testWidgets('captures image with camera and asks AI tutor', (
+  testWidgets('shows only animated dots while waiting for the tutor', (
     tester,
   ) async {
+    final delay = Completer<void>();
+    final api = FakeStudentApi()..tutorDelay = delay;
+    await login(tester, api);
+
+    await tester.enterText(find.byKey(const Key('tutor-question')), 'Chào bạn');
+    await tester.tap(find.text('Hỏi AI'));
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.byKey(const Key('tutor-typing-indicator')), findsOneWidget);
+    expect(find.byKey(const Key('tutor-typing-dot-0')), findsOneWidget);
+    expect(find.byKey(const Key('tutor-typing-dot-1')), findsOneWidget);
+    expect(find.byKey(const Key('tutor-typing-dot-2')), findsOneWidget);
+    expect(find.text('Đang đối chiếu dữ liệu Sách giáo khoa…'), findsNothing);
+
+    delay.complete();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('captures image with camera and asks AI tutor', (tester) async {
     final api = FakeStudentApi();
     await login(tester, api);
 
@@ -103,29 +124,30 @@ void main() {
     );
   });
 
-  testWidgets('shows an English retry message when the AI provider is unavailable', (
-    tester,
-  ) async {
-    final api = FakeStudentApi()
-      ..tutorError = const ApiException(
-        code: 'ai_provider_unavailable',
-        message: 'Unavailable',
-        statusCode: 503,
+  testWidgets(
+    'shows an English retry message when the AI provider is unavailable',
+    (tester) async {
+      final api = FakeStudentApi()
+        ..tutorError = const ApiException(
+          code: 'ai_provider_unavailable',
+          message: 'Unavailable',
+          statusCode: 503,
+        );
+      await login(tester, api);
+
+      await tester.tap(find.text('Tiếng Anh'));
+      await tester.enterText(
+        find.byKey(const Key('tutor-question')),
+        'How do we use the present simple?',
       );
-    await login(tester, api);
+      await tester.tap(find.text('Hỏi AI'));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Tiếng Anh'));
-    await tester.enterText(
-      find.byKey(const Key('tutor-question')),
-      'How do we use the present simple?',
-    );
-    await tester.tap(find.text('Hỏi AI'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('The AI tutor is temporarily unavailable. Please try again.'),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        find.text('The AI tutor is temporarily unavailable. Please try again.'),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

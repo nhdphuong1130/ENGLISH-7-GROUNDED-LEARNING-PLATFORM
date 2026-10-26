@@ -235,56 +235,57 @@ class TutorService:
                         conversation = updated
             history = self._conversations.context_for_ask(user_id, conversation_id)
 
+        if upload_id is None and self._is_social_turn(question):
+            try:
+                generated = self._provider.generate(
+                    AIRequest(
+                        query,
+                        language,
+                        (),
+                        history=tuple(
+                            ConversationTurn(item.question, item.answer)
+                            for item in history
+                        ),
+                        addressing_preference=(
+                            conversation.addressing_preference
+                            if conversation
+                            else None
+                        ),
+                        social_turn=True,
+                    )
+                )
+            except AIProviderError:
+                raise ApplicationError(
+                    "ai_provider_unavailable",
+                    "The AI tutor is temporarily unavailable. Please try again.",
+                    503,
+                ) from None
+            if (
+                generated.language != language
+                or generated.scope_status is not ScopeStatus.SOCIAL
+                or not generated.answer
+                or generated.citations
+            ):
+                raise ApplicationError(
+                    "invalid_ai_response", "AI response validation failed", 502
+                )
+            result = TutorAnswer(
+                generated.answer,
+                generated.language,
+                (),
+                ScopeStatus.SOCIAL,
+                conversation_id,
+            )
+            self._persist_answer(
+                result,
+                user_id=user_id,
+                question=question,
+                upload_id=upload_id,
+            )
+            return result
+
         context = self._retrieval.retrieve(query)
         if not context.fragments:
-            if upload_id is None and self._is_social_turn(question):
-                try:
-                    generated = self._provider.generate(
-                        AIRequest(
-                            query,
-                            language,
-                            (),
-                            history=tuple(
-                                ConversationTurn(item.question, item.answer)
-                                for item in history
-                            ),
-                            addressing_preference=(
-                                conversation.addressing_preference
-                                if conversation
-                                else None
-                            ),
-                            social_turn=True,
-                        )
-                    )
-                except AIProviderError:
-                    raise ApplicationError(
-                        "ai_provider_unavailable",
-                        "The AI tutor is temporarily unavailable. Please try again.",
-                        503,
-                    ) from None
-                if (
-                    generated.language != language
-                    or generated.scope_status is not ScopeStatus.SOCIAL
-                    or not generated.answer
-                    or generated.citations
-                ):
-                    raise ApplicationError(
-                        "invalid_ai_response", "AI response validation failed", 502
-                    )
-                result = TutorAnswer(
-                    generated.answer,
-                    generated.language,
-                    (),
-                    ScopeStatus.SOCIAL,
-                    conversation_id,
-                )
-                self._persist_answer(
-                    result,
-                    user_id=user_id,
-                    question=question,
-                    upload_id=upload_id,
-                )
-                return result
             result = TutorAnswer(
                 self._out_of_scope(language),
                 language,

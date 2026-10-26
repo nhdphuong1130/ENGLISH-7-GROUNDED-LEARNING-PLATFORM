@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:english7_mobile/app/student_api.dart';
@@ -68,6 +69,7 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
   bool refuseTutor = false;
   bool conversationFull = false;
   Object? tutorError;
+  Completer<void>? tutorDelay;
   final tutorQueries = <TutorQuery>[];
   final tutorConversations = <TutorConversationSummary>[];
   final tutorConversationDetails = <String, TutorConversation>{};
@@ -330,6 +332,7 @@ class FakeStudentApi with EmptyLearning implements StudentApi {
     TutorQuery query,
   ) async {
     if (conversationFull) throw const TutorConversationFull();
+    if (tutorDelay != null) await tutorDelay!.future;
     final result = await askTutor(query);
     return TutorResult(
       result.answer,

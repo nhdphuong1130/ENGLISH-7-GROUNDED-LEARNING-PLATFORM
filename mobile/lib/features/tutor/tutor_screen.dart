@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -485,8 +487,7 @@ class _TutorScreenState extends State<TutorScreen> {
             'The AI tutor is temporarily unavailable. Please try again.',
           (TutorLanguage.english, 'image_processing_timeout') =>
             'The image took too long to process. Please try again.',
-          (TutorLanguage.english, _) =>
-            'The request could not be completed. Please check the connection and try again.',
+          (TutorLanguage.english, _) => 'The request could not be completed. Please check the connection and try again.',
           (TutorLanguage.vietnamese, 'ai_provider_unavailable') =>
             'Gia sư AI đang tạm thời quá tải. Em hãy thử lại sau nhé.',
           (TutorLanguage.vietnamese, 'image_processing_timeout') =>
@@ -1023,7 +1024,7 @@ class _TutorScreenState extends State<TutorScreen> {
           ),
           const SizedBox(width: 10),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(18),
@@ -1031,29 +1032,7 @@ class _TutorScreenState extends State<TutorScreen> {
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
               ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: Text(
-                    'Đang đối chiếu dữ liệu Sách giáo khoa…',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                ),
-              ],
-            ),
+            child: const _TutorTypingIndicator(),
           ),
         ],
       ),
@@ -1274,6 +1253,67 @@ class _TutorScreenState extends State<TutorScreen> {
         ),
         _buildInputDock(context),
       ],
+    );
+  }
+}
+
+class _TutorTypingIndicator extends StatefulWidget {
+  const _TutorTypingIndicator()
+    : super(key: const Key('tutor-typing-indicator'));
+
+  @override
+  State<_TutorTypingIndicator> createState() => _TutorTypingIndicatorState();
+}
+
+class _TutorTypingIndicatorState extends State<_TutorTypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Semantics(
+      label: 'AI đang trả lời',
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List.generate(3, (index) {
+            final phase = (_controller.value - index * 0.16) % 1.0;
+            final lift = -3.5 * math.sin(phase * math.pi);
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 2.5),
+              child: Transform.translate(
+                offset: Offset(0, lift),
+                child: Container(
+                  key: Key('tutor-typing-dot-$index'),
+                  width: 7,
+                  height: 7,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.8),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
     );
   }
 }

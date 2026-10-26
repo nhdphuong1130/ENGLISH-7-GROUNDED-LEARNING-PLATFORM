@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Prioritize Vietnamese and English social turns before textbook retrieval so
+  greetings receive a natural AI response even when retrieval finds an
+  unrelated fragment; replace the verbose tutor loading message with a compact
+  animated three-dot typing indicator.
 - Made the AI Tutor header responsive on narrow phones and routed greetings,
   thanks, and farewells through a safe bilingual social-turn mode instead of
   the hardcoded out-of-scope refusal.
