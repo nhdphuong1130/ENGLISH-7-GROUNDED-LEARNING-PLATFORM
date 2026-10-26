@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
+from pydantic import BaseModel, ConfigDict, Field
 from starlette.concurrency import run_in_threadpool
 
 from english7.api.errors import ApplicationError
@@ -516,6 +516,47 @@ def require_admin(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthU
 
 
 AdminUser = Annotated[AuthUser, Depends(require_admin)]
+
+
+class AdminAuditEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    actor_id: UUID | None
+    action: str
+    entity_type: str
+    entity_id: UUID
+    event_data: dict[str, Any]
+    request_id: str | None
+    ip_address: str | None
+    platform: str | None
+    before_data: dict[str, Any] | None
+    after_data: dict[str, Any] | None
+    succeeded: bool
+    created_at: datetime
+
+
+def get_admin_audit_service():
+    from english7.modules.admin.audit_service import AdminAuditService
+
+    return AdminAuditService(get_session_factory())
+
+
+@router.get("/audit-events")
+def get_admin_audit_events(
+    _admin: AdminUser,
+    _request: Request,
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> dict[str, Any]:
+    service = get_admin_audit_service()
+    events = service.list_events(offset=offset, limit=limit)
+    return {
+        "items": [AdminAuditEventResponse.model_validate(event) for event in events],
+        "offset": offset,
+        "limit": limit,
+        "count": len(events),
+    }
 
 
 def get_admin_speaking_service(
