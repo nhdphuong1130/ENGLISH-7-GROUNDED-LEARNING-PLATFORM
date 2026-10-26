@@ -52,8 +52,9 @@ class _AdminContentEditorState extends State<AdminContentEditor> {
       _ => name.replaceAll('_', '-'),
     };
     final duplicate = '${widget.schema.kind.name}-';
-    if (suffix.startsWith(duplicate))
+    if (suffix.startsWith(duplicate)) {
       suffix = suffix.substring(duplicate.length);
+    }
     return '${widget.schema.kind.name}-$suffix';
   }
 
@@ -215,12 +216,14 @@ class _AdminContentEditorState extends State<AdminContentEditor> {
                   decoration: InputDecoration(labelText: field.label),
                   validator: (value) {
                     final raw = value?.trim() ?? '';
-                    if (field.required && raw.isEmpty)
+                    if (field.required && raw.isEmpty) {
                       return 'Vui lòng nhập ${field.label.toLowerCase()}';
+                    }
                     if (field.numeric &&
                         raw.isNotEmpty &&
-                        int.tryParse(raw) == null)
+                        int.tryParse(raw) == null) {
                       return 'Giá trị số không hợp lệ';
+                    }
                     return null;
                   },
                 ),
