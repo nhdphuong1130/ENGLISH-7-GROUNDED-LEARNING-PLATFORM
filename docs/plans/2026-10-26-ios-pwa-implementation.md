@@ -55,7 +55,6 @@ Add `test-pwa` and `build-pwa` Make targets. `build-pwa` runs:
 
 ```bash
 cd mobile && flutter build web --release --base-href /app/ \
-  --web-content-hash \
   --dart-define=API_BASE_URL=https://13.229.72.146.sslip.io \
   --dart-define=IMAGE_POLL_INTERVAL_MS=1000 \
   --dart-define=IMAGE_POLL_MAX_ATTEMPTS=30

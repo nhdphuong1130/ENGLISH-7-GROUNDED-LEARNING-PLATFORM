@@ -13,7 +13,7 @@ Future<void> main() async {
   final config = AppConfig.fromDartDefine();
   const tokens = SecureTokenStore();
   final api = ApiStudentApi(
-    ApiClient(config, IOHttpTransport(), tokens),
+    ApiClient(config, createHttpTransport(), tokens),
     tokens,
     imagePollInterval: config.imagePollInterval,
     imagePollMaxAttempts: config.imagePollMaxAttempts,

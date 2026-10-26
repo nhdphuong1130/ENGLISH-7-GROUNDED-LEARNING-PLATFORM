@@ -107,7 +107,7 @@ test-pwa:
 	python3 scripts/test_pwa_assets.py
 
 build-pwa: test-pwa
-	cd mobile && $(FLUTTER) build web --release --base-href /app/ --web-content-hash \
+	cd mobile && $(FLUTTER) build web --release --base-href /app/ \
 		--dart-define=API_BASE_URL=https://13.229.72.146.sslip.io \
 		--dart-define=IMAGE_POLL_INTERVAL_MS=1000 \
 		--dart-define=IMAGE_POLL_MAX_ATTEMPTS=30
