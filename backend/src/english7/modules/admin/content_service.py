@@ -149,6 +149,11 @@ class AdminContentService:
             "is_published": unit.is_published,
             "version": version,
             "status": latest_status or status,
+            "child_count": session.scalar(
+                select(func.count()).select_from(Section).where(
+                    Section.unit_id == unit.id
+                )
+            ) or 0,
         }
 
     def create_unit(
@@ -305,7 +310,19 @@ class AdminContentService:
     def list_sections(self, unit_id: UUID) -> list[dict[str, Any]]:
         with self._session_factory() as session:
             sections = list(session.scalars(select(Section).where(Section.unit_id == unit_id).order_by(Section.position, Section.id)))
-            return [self._versioned_view(session, "section", item.id, self._section_snapshot(item)) for item in sections]
+            return [
+                {
+                    **self._versioned_view(
+                        session, "section", item.id, self._section_snapshot(item)
+                    ),
+                    "child_count": session.scalar(
+                        select(func.count()).select_from(Activity).where(
+                            Activity.section_id == item.id
+                        )
+                    ) or 0,
+                }
+                for item in sections
+            ]
 
     def update_section(self, section_id: UUID, changes: dict[str, Any], *, expected_version: int, actor_id: UUID, **audit_context: Any) -> dict[str, Any]:
         allowed = {"title", "section_type", "position"}
@@ -356,7 +373,19 @@ class AdminContentService:
     def list_activities(self, section_id: UUID) -> list[dict[str, Any]]:
         with self._session_factory() as session:
             activities = list(session.scalars(select(Activity).where(Activity.section_id == section_id).order_by(Activity.number, Activity.id)))
-            return [self._versioned_view(session, "activity", item.id, self._activity_snapshot(item)) for item in activities]
+            return [
+                {
+                    **self._versioned_view(
+                        session, "activity", item.id, self._activity_snapshot(item)
+                    ),
+                    "child_count": session.scalar(
+                        select(func.count()).select_from(SourceFragment).where(
+                            SourceFragment.activity_id == item.id
+                        )
+                    ) or 0,
+                }
+                for item in activities
+            ]
 
     def update_activity(self, activity_id: UUID, changes: dict[str, Any], *, expected_version: int, actor_id: UUID, **audit_context: Any) -> dict[str, Any]:
         allowed = {"number", "activity_type", "instruction"}

@@ -135,7 +135,19 @@ class AdminPracticeService:
     def list_decks(self) -> list[dict[str, Any]]:
         with self._session_factory() as session:
             rows = list(session.scalars(select(FlashcardDeck).where(FlashcardDeck.kind == "textbook").order_by(FlashcardDeck.unit_number)))
-            return [self._view(session, "flashcard_deck", row.id, self._deck_snapshot(row)) for row in rows]
+            return [
+                {
+                    **self._view(
+                        session, "flashcard_deck", row.id, self._deck_snapshot(row)
+                    ),
+                    "child_count": session.scalar(
+                        select(func.count()).select_from(Flashcard).where(
+                            Flashcard.deck_id == row.id
+                        )
+                    ) or 0,
+                }
+                for row in rows
+            ]
 
     def update_deck(self, deck_id: UUID, *, name: str, expected_version: int, actor_id: UUID, **context: Any) -> dict[str, Any]:
         with self._session_factory() as session:

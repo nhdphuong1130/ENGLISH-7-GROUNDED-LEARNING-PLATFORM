@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
@@ -18,6 +19,7 @@ class AdminDashboardResponse(BaseModel):
     archived_students: int
     submitted_tests: int
     draft_content: int
+    refreshed_at: datetime
 
 
 def get_admin_dashboard_service() -> AdminDashboardService:
@@ -35,4 +37,7 @@ def get_admin_dashboard(
     _admin: AdminUser,
     service: DashboardService,
 ) -> AdminDashboardResponse:
-    return AdminDashboardResponse(**service.summary())
+    return AdminDashboardResponse(
+        **service.summary(),
+        refreshed_at=datetime.now(timezone.utc),
+    )

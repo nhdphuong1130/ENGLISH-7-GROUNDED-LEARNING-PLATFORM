@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import uuid4
 
 from english7.main import app
@@ -40,4 +41,6 @@ def test_admin_dashboard_returns_operational_counts(client) -> None:
         "archived_students": 1,
         "submitted_tests": 5,
         "draft_content": 3,
+        "refreshed_at": response.json()["refreshed_at"],
     }
+    assert datetime.fromisoformat(response.json()["refreshed_at"]).tzinfo is not None

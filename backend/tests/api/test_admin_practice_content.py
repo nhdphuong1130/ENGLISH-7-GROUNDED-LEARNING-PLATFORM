@@ -53,6 +53,7 @@ def test_textbook_card_generates_ipa_and_requires_grounding_to_publish() -> None
     deck = service.create_deck(name="Unit 1", unit_id=unit_id, actor_id=admin_id)
     card = service.create_card(deck["id"], word="hobby", meaning="sở thích", source_fragment_id=fragment_id, actor_id=admin_id)
 
+    assert service.list_decks()[0]["child_count"] == 1
     assert card["ipa"] == "/hobby/"
     assert card["page"] == 8
     published = service.publish_card(card["id"], expected_version=1, actor_id=admin_id)

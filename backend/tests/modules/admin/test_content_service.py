@@ -178,6 +178,10 @@ def test_section_activity_crud_and_preview_are_versioned() -> None:
         actor_id=admin_id,
     )
 
+    assert service.list_units()[0]["child_count"] == 1
+    assert service.list_sections(unit["id"])[0]["child_count"] == 1
+    assert service.list_activities(section["id"])[0]["child_count"] == 0
+
     assert section["version"] == 2
     assert activity["version"] == 2
     assert service.preview("activity", activity["id"])["instruction"] == "Match words and pictures"
