@@ -19,6 +19,8 @@ class AdminContentSchema {
   final String entityType;
   final String basePath;
   final String versionBasePath;
+  final String createPath;
+  final Map<String, Object?> createDefaults;
   final AdminContentSchema? Function(AdminContentRecord item)? child;
 
   const AdminContentSchema({
@@ -28,9 +30,11 @@ class AdminContentSchema {
     required this.entityType,
     required this.basePath,
     required this.versionBasePath,
+    String? createPath,
+    this.createDefaults = const {},
     this.query = const {},
     this.child,
-  });
+  }) : createPath = createPath ?? listPath;
 
   String title(AdminContentRecord item) => switch (kind) {
     AdminContentKind.activity =>
@@ -75,6 +79,7 @@ AdminContentSchema _activities(AdminContentRecord section) =>
       entityType: 'activity',
       basePath: '/api/v1/admin/content/activities',
       versionBasePath: '/api/v1/admin/content',
+      createPath: '/api/v1/admin/content/sections/${section.id}/activities',
       child: (activity) => AdminContentSchema(
         label: 'Nội dung • Activity ${activity.values['number'] ?? ''}',
         listPath: '/api/v1/admin/content/fragments',
@@ -83,6 +88,8 @@ AdminContentSchema _activities(AdminContentRecord section) =>
         entityType: 'fragment',
         basePath: '/api/v1/admin/content/fragments',
         versionBasePath: '/api/v1/admin/content',
+        createPath: '/api/v1/admin/content/fragments',
+        createDefaults: {'activity_id': activity.id},
       ),
     );
 
@@ -93,6 +100,7 @@ AdminContentSchema _sections(AdminContentRecord unit) => AdminContentSchema(
   entityType: 'section',
   basePath: '/api/v1/admin/content/sections',
   versionBasePath: '/api/v1/admin/content',
+  createPath: '/api/v1/admin/content/units/${unit.id}/sections',
   child: _activities,
 );
 
@@ -103,6 +111,7 @@ AdminContentSchema _cards(AdminContentRecord deck) => AdminContentSchema(
   entityType: 'flashcard',
   basePath: '/api/v1/admin/practice/cards',
   versionBasePath: '/api/v1/admin/practice',
+  createPath: '/api/v1/admin/practice/decks/${deck.id}/cards',
 );
 
 final adminRootSchemas = <AdminContentSchema>[

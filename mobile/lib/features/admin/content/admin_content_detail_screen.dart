@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../app/admin_api.dart';
+import 'admin_content_editor.dart';
 import 'admin_content_schema.dart';
 
 class AdminContentDetailScreen extends StatefulWidget {
@@ -50,9 +51,38 @@ class _AdminContentDetailScreenState extends State<AdminContentDetailScreen> {
     );
   }
 
+  Future<void> _edit([AdminContentRecord? item]) => showDialog<void>(
+    context: context,
+    builder: (context) => Dialog(
+      child: AdminContentEditor(
+        schema: widget.schema,
+        value: item,
+        onSave: (payload) async {
+          if (item == null) {
+            await widget.api.createAdminResource(
+              widget.schema.createPath,
+              payload,
+            );
+          } else {
+            await widget.api.updateAdminResource(
+              '${widget.schema.basePath}/${item.id}',
+              payload,
+            );
+          }
+          await _refresh();
+        },
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(widget.schema.label)),
+    floatingActionButton: FloatingActionButton(
+      tooltip: 'Tạo nội dung chi tiết',
+      onPressed: () => _edit(),
+      child: const Icon(Icons.add),
+    ),
     body: FutureBuilder<List<AdminContentRecord>>(
       future: _items,
       builder: (context, snapshot) {
@@ -82,7 +112,7 @@ class _AdminContentDetailScreenState extends State<AdminContentDetailScreen> {
               final child = widget.schema.child?.call(item);
               return Card(
                 child: ListTile(
-                  onTap: child == null ? null : () => _open(item),
+                  onTap: child == null ? () => _edit(item) : () => _open(item),
                   title: Text(widget.schema.title(item)),
                   subtitle: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

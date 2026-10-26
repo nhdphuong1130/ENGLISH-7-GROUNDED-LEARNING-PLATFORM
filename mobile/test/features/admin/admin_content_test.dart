@@ -68,6 +68,7 @@ void main() {
           'id': 'card-1',
           'word': 'hobby',
           'meaning': 'sở thích',
+              'source_fragment_id': 'fragment-1',
           'version': 1,
           'status': 'published',
         }),
@@ -81,6 +82,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('hobby'), findsOneWidget);
     expect(find.text('sở thích'), findsOneWidget);
+
+    await tester.tap(find.text('hobby'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('card-meaning')), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('card-meaning')), 'đam mê');
+    await tester.ensureVisible(find.text('Lưu bản nháp'));
+    await tester.tap(find.text('Lưu bản nháp'));
+    await tester.pumpAndSettle();
+    expect(api.lastUpdatedAdminPath, '/api/v1/admin/practice/cards/card-1');
+    expect(api.lastUpdatedAdminPayload?['meaning'], 'đam mê');
+    expect(api.lastUpdatedAdminPayload?['expected_version'], 1);
+  });
+
+  testWidgets('creates a section inside a unit', (tester) async {
+    final api = FakeStudentApi()
+      ..adminResources['/api/v1/admin/content/units'] = const [
+        AdminContentRecord('unit-1', 1, 'draft', {
+          'id': 'unit-1',
+          'title': 'Hobbies',
+          'version': 1,
+          'status': 'draft',
+        }),
+      ]
+      ..adminResources['/api/v1/admin/content/units/unit-1/sections'] =
+          const [];
+    await tester.pumpWidget(MaterialApp(home: AdminContentScreen(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Hobbies'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FloatingActionButton));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const Key('section-title')),
+      'Getting Started',
+    );
+    await tester.enterText(find.byKey(const Key('section-type')), 'lesson');
+    await tester.enterText(find.byKey(const Key('section-position')), '1');
+    await tester.tap(find.text('Lưu bản nháp'));
+    await tester.pumpAndSettle();
+    expect(
+      api.lastCreatedAdminPath,
+      '/api/v1/admin/content/units/unit-1/sections',
+    );
+    expect(api.lastCreatedAdminPayload?['position'], 1);
   });
 
   testWidgets('previews a draft and opens immutable revision history', (

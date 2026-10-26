@@ -216,6 +216,11 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
   List<AdminRevision> adminRevisions = [];
   final adminActionPaths = <String>[];
   Map<String, Object?> lastAdminActionPayload = const {};
+  String? lastCreatedAdminPath;
+  Map<String, Object?>? lastCreatedAdminPayload;
+  String? lastUpdatedAdminPath;
+  Map<String, Object?>? lastUpdatedAdminPayload;
+  final deletedAdminPaths = <String>[];
   AdminImportReport adminImportReport = const AdminImportReport(
     0,
     0,
@@ -245,6 +250,8 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
     String path,
     Map<String, Object?> payload,
   ) async {
+    lastCreatedAdminPath = path;
+    lastCreatedAdminPayload = payload;
     final value = AdminContentRecord(
       'created-${adminResources[path]?.length ?? 0}',
       1,
@@ -259,12 +266,21 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
   Future<AdminContentRecord> updateAdminResource(
     String path,
     Map<String, Object?> payload,
-  ) async => AdminContentRecord(
-    path.split('/').last,
-    (payload['expected_version'] as int? ?? 0) + 1,
-    'draft',
-    payload,
-  );
+  ) async {
+    lastUpdatedAdminPath = path;
+    lastUpdatedAdminPayload = payload;
+    return AdminContentRecord(
+      path.split('/').last,
+      (payload['expected_version'] as int? ?? 0) + 1,
+      'draft',
+      payload,
+    );
+  }
+
+  @override
+  Future<void> deleteAdminResource(String path, {String? confirmation}) async {
+    deletedAdminPaths.add(path);
+  }
 
   @override
   Future<AdminContentRecord> runAdminResourceAction(
@@ -282,9 +298,6 @@ class FakeStudentApi with EmptyLearning, EmptyAdminApi implements StudentApi {
           {'id': 'preview', 'title': 'Preview', ...payload},
         );
   }
-
-  @override
-  Future<void> deleteAdminResource(String path, {String? confirmation}) async {}
 
   @override
   Future<List<AdminRevision>> loadAdminRevisions(String path) async =>

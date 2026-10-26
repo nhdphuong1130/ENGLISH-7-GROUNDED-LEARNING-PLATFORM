@@ -147,6 +147,7 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
     context: context,
     builder: (context) => Dialog(
       child: AdminContentEditor(
+        schema: current,
         value: item,
         onSave: (payload) async {
           if (item == null) {
@@ -187,7 +188,7 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              if (_section == 0)
+              if (_section != 4)
                 IconButton(
                   tooltip: 'Tạo nội dung',
                   onPressed: () => _edit(),
@@ -258,12 +259,11 @@ class _AdminContentScreenState extends State<AdminContentScreen> {
                                 onPressed: () => _archive(item),
                                 icon: const Icon(Icons.archive_outlined),
                               ),
-                            if (_section == 0)
-                              IconButton(
-                                tooltip: 'Chỉnh sửa',
-                                onPressed: () => _edit(item),
-                                icon: const Icon(Icons.edit_outlined),
-                              ),
+                            IconButton(
+                              tooltip: 'Chỉnh sửa',
+                              onPressed: () => _edit(item),
+                              icon: const Icon(Icons.edit_outlined),
+                            ),
                           ],
                         ),
                       ),
