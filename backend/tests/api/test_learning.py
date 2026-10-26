@@ -102,10 +102,11 @@ def test_offline_speech_does_not_disable_flashcards(client, learning):
     assert client.get('/api/v1/learning/progress').status_code == 200
 
 
-def test_admin_cannot_access_student_learning(client, learning):
+def test_admin_can_access_flashcards_but_not_student_progress(client, learning):
     app.dependency_overrides[get_current_user] = lambda: AuthUser.new(
         email='admin@example.com', password_hash='x', role='admin')
-    for path in ['/flashcards/decks', '/learning/progress', '/speaking/voices', '/speaking/history']:
+    assert client.get('/api/v1/flashcards/decks').status_code == 200
+    for path in ['/learning/progress', '/speaking/voices', '/speaking/history']:
         assert client.get('/api/v1' + path).status_code == 403
     assert client.get('/api/v1/admin/speaking/voices').status_code == 200
     assert client.get('/api/v1/admin/speaking/history').status_code == 200

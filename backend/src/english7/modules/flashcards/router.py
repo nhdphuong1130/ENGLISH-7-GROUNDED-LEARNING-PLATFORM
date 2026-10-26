@@ -16,9 +16,9 @@ from english7.modules.flashcards.service import FlashcardService
 router = APIRouter(prefix='/flashcards', tags=['flashcards'])
 
 
-def require_student(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
-    if user.role != 'student':
-        raise ApplicationError('forbidden', 'Student role is required', 403)
+def require_flashcard_user(user: Annotated[AuthUser, Depends(get_current_user)]) -> AuthUser:
+    if user.role not in {'student', 'admin'}:
+        raise ApplicationError('forbidden', 'Student or admin role is required', 403)
     return user
 
 
@@ -43,7 +43,7 @@ def get_flashcard_service(request: Request) -> FlashcardService:
     )
 
 
-Student = Annotated[AuthUser, Depends(require_student)]
+FlashcardUser = Annotated[AuthUser, Depends(require_flashcard_user)]
 Service = Annotated[FlashcardService, Depends(get_flashcard_service)]
 
 
@@ -84,63 +84,63 @@ class FlagInput(Input):
 
 
 @router.get('/decks')
-def decks(user: Student, service: Service) -> dict[str, list[Deck]]:
+def decks(user: FlashcardUser, service: Service) -> dict[str, list[Deck]]:
     return {'items': service.list_decks(user.id)}
 
 
 @router.post('/decks', status_code=201)
-def create_deck(payload: DeckInput, user: Student, service: Service) -> Deck:
+def create_deck(payload: DeckInput, user: FlashcardUser, service: Service) -> Deck:
     return service.create_deck(user.id, payload.name)
 
 
 @router.patch('/decks/{deck_id}')
-def update_deck(deck_id: UUID, payload: DeckInput, user: Student, service: Service) -> Deck:
+def update_deck(deck_id: UUID, payload: DeckInput, user: FlashcardUser, service: Service) -> Deck:
     return service.update_deck(user.id, deck_id, payload.name)
 
 
 @router.delete('/decks/{deck_id}', status_code=204)
-def delete_deck(deck_id: UUID, user: Student, service: Service) -> Response:
+def delete_deck(deck_id: UUID, user: FlashcardUser, service: Service) -> Response:
     service.delete_deck(user.id, deck_id)
     return Response(status_code=204)
 
 
 @router.get('/decks/{deck_id}/cards')
-def cards(deck_id: UUID, user: Student, service: Service) -> dict[str, list[Card]]:
+def cards(deck_id: UUID, user: FlashcardUser, service: Service) -> dict[str, list[Card]]:
     return {'items': service.list_cards(user.id, deck_id)}
 
 
 @router.post('/decks/{deck_id}/cards', status_code=201)
-def create_card(deck_id: UUID, payload: CardInput, user: Student, service: Service) -> Card:
+def create_card(deck_id: UUID, payload: CardInput, user: FlashcardUser, service: Service) -> Card:
     return service.create_card(user.id, deck_id, **payload.model_dump())
 
 
 @router.patch('/cards/{card_id}')
-def update_card(card_id: UUID, payload: CardUpdate, user: Student, service: Service) -> Card:
+def update_card(card_id: UUID, payload: CardUpdate, user: FlashcardUser, service: Service) -> Card:
     return service.update_card(user.id, card_id, **payload.model_dump(exclude_unset=True))
 
 
 @router.delete('/cards/{card_id}', status_code=204)
-def delete_card(card_id: UUID, user: Student, service: Service) -> Response:
+def delete_card(card_id: UUID, user: FlashcardUser, service: Service) -> Response:
     service.delete_card(user.id, card_id)
     return Response(status_code=204)
 
 
 @router.get('/review')
-def review_queue(user: Student, service: Service, deck_id: UUID | None = None) -> dict[str, list[Card]]:
+def review_queue(user: FlashcardUser, service: Service, deck_id: UUID | None = None) -> dict[str, list[Card]]:
     return {'items': service.review_queue(user.id, deck_id)}
 
 
 @router.post('/cards/{card_id}/review')
-def review(card_id: UUID, payload: ReviewInput, user: Student, service: Service) -> ReviewResult:
+def review(card_id: UUID, payload: ReviewInput, user: FlashcardUser, service: Service) -> ReviewResult:
     return service.review(user.id, card_id, **payload.model_dump())
 
 
 @router.patch('/cards/{card_id}/flag')
-def flag(card_id: UUID, payload: FlagInput, user: Student, service: Service) -> Card:
+def flag(card_id: UUID, payload: FlagInput, user: FlashcardUser, service: Service) -> Card:
     return service.flag(user.id, card_id, payload.difficult)
 
 
 @router.get('/cards/{card_id}/audio')
-def card_audio(card_id: UUID, user: Student, service: Service) -> Response:
+def card_audio(card_id: UUID, user: FlashcardUser, service: Service) -> Response:
     audio_bytes = service.card_audio(user.id, card_id)
     return Response(content=audio_bytes, media_type='audio/wav', headers={'Cache-Control': 'public, max-age=86400'})

@@ -35,6 +35,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Quality and safety checklists for Clean Architecture, open-source readiness, and AI agents.
 
 ### Changed
+- Allow both student and admin accounts to manage owner-scoped personal
+  flashcards. Card creation no longer fails when AI pronunciation is
+  temporarily unavailable, and loading a personal deck automatically retries
+  and persists missing IPA transcriptions.
 - Prioritize Vietnamese and English social turns before textbook retrieval so
   greetings receive a natural AI response even when retrieval finds an
   unrelated fragment; replace the verbose tutor loading message with a compact

@@ -100,6 +100,69 @@ def test_editing_personal_card_word_refreshes_ai_pronunciation(setup):
     assert updated.ipa == "/ˈbenɪfɪt/"
 
 
+def test_listing_personal_cards_backfills_missing_ai_pronunciation(setup):
+    from english7.modules.flashcards.service import FlashcardService
+
+    class Pronouncer:
+        def __init__(self):
+            self.words = []
+
+        def pronounce(self, text):
+            self.words.append(text)
+            return "/həˈloʊ/"
+
+    existing, (owner, _), now, _ = setup
+    deck = existing.create_deck(owner, "Personal")
+    card = existing.create_card(owner, deck.id, word="hello", meaning="xin chào")
+    assert card.ipa is None
+
+    pronouncer = Pronouncer()
+    service = FlashcardService(
+        existing.repository,
+        clock=lambda: now[0],
+        pronunciation_provider=pronouncer,
+    )
+
+    assert service.list_cards(owner, deck.id)[0].ipa == "/həˈloʊ/"
+    assert service.list_cards(owner, deck.id)[0].ipa == "/həˈloʊ/"
+    assert pronouncer.words == ["hello"]
+
+
+def test_temporary_ai_failure_does_not_block_card_creation_and_retries(setup):
+    from english7.modules.ai.contracts import AIProviderError
+    from english7.modules.flashcards.service import FlashcardService
+
+    class FlakyPronouncer:
+        def __init__(self):
+            self.calls = 0
+
+        def pronounce(self, text):
+            self.calls += 1
+            if self.calls == 1:
+                raise AIProviderError("ai_provider_failed")
+            return "/həˈloʊ/"
+
+    existing, (owner, _), now, _ = setup
+    pronouncer = FlakyPronouncer()
+    service = FlashcardService(
+        existing.repository,
+        clock=lambda: now[0],
+        pronunciation_provider=pronouncer,
+    )
+    deck = service.create_deck(owner, "Personal")
+
+    created = service.create_card(
+        owner,
+        deck.id,
+        word="hello",
+        meaning="xin chào",
+    )
+
+    assert created.ipa is None
+    assert service.list_cards(owner, deck.id)[0].ipa == "/həˈloʊ/"
+    assert pronouncer.calls == 2
+
+
 def test_review_recall_schedule_and_idempotency(setup):
     service, (owner, _), now, _ = setup
     deck = service.create_deck(owner, 'Words')
@@ -149,7 +212,7 @@ def test_public_cards_readonly_and_copy_provenance(setup):
     assert not service.get_card(stranger, card_id).difficult
 
 
-def test_router_requires_student_and_preserves_contract(setup):
+def test_router_allows_students_and_admins_to_manage_personal_cards(setup):
     from fastapi import FastAPI
     from fastapi.testclient import TestClient
     from english7.api.errors import install_error_handling
@@ -165,7 +228,13 @@ def test_router_requires_student_and_preserves_contract(setup):
     with TestClient(app) as client:
         assert client.get('/api/v1/flashcards/decks').status_code == 401
         app.dependency_overrides[get_current_user] = lambda: AuthUser(owner, 'test@example.com', 'unused', 'admin')
-        assert client.get('/api/v1/flashcards/decks').status_code == 403
+        admin_deck = client.post('/api/v1/flashcards/decks', json={'name': 'Admin deck'})
+        assert admin_deck.status_code == 201
+        admin_card = client.post(
+            f'/api/v1/flashcards/decks/{admin_deck.json()["id"]}/cards',
+            json={'word': 'manage', 'meaning': 'quản lý'},
+        )
+        assert admin_card.status_code == 201
         app.dependency_overrides[get_current_user] = lambda: AuthUser(owner, 'test@example.com', 'unused', 'student')
         deck = client.post('/api/v1/flashcards/decks', json={'name': 'My deck'})
         assert deck.status_code == 201
@@ -174,7 +243,10 @@ def test_router_requires_student_and_preserves_contract(setup):
         assert card.status_code == 201
         card_id = card.json()['id']
         assert card.json()['source_label'] == 'Personal card'
-        assert client.get('/api/v1/flashcards/review').json()['items'][0]['id'] == card_id
+        review_ids = {
+            item['id'] for item in client.get('/api/v1/flashcards/review').json()['items']
+        }
+        assert card_id in review_ids
         assert client.patch(f'/api/v1/flashcards/cards/{card_id}', json={'word': None}).status_code == 422
         assert client.patch(f'/api/v1/flashcards/cards/{card_id}', json={'page': 88}).status_code == 422
         reviewed = client.post(f'/api/v1/flashcards/cards/{card_id}/review', json={'request_id': str(uuid4()), 'answer': 'HOBBY', 'rating': 'good'})

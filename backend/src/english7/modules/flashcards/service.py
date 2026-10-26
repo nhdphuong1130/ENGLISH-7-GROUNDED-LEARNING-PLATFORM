@@ -2,12 +2,16 @@ from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 import hashlib
 import json
+import logging
 from uuid import UUID
 from typing import Protocol
 
 from english7.api.errors import ApplicationError
 from english7.modules.ai.contracts import AIProviderError
 from english7.modules.flashcards.domain import Card, Deck, ReviewResult, normalize_word
+
+
+logger = logging.getLogger(__name__)
 
 
 def utc(value: datetime) -> datetime:
@@ -37,11 +41,8 @@ class FlashcardService:
         try:
             return self.pronunciation_provider.pronounce(word)
         except AIProviderError:
-            raise ApplicationError(
-                "pronunciation_unavailable",
-                "Không thể tạo phiên âm lúc này. Vui lòng thử lại.",
-                503,
-            ) from None
+            logger.warning("AI pronunciation is temporarily unavailable")
+            return None
 
     def card_audio(self, user_id: UUID, card_id: UUID) -> bytes:
         card = self.get_card(user_id, card_id)
@@ -114,6 +115,22 @@ class FlashcardService:
             return self._card_view(tx, user_id, self._card(tx, user_id, card_id))
 
     def list_cards(self, user_id, deck_id):
+        with self.repository.transaction() as tx:
+            deck = self._deck(tx, user_id, deck_id)
+            cards = tx.cards(deck_id)
+            missing = (
+                [(card.id, card.word) for card in cards if not card.ipa]
+                if deck.kind == 'personal'
+                else []
+            )
+        for card_id, word in missing:
+            ipa = self._pronunciation(word)
+            if not ipa:
+                continue
+            with self.repository.transaction() as tx:
+                card = self._card(tx, user_id, card_id, True)
+                if card.word == word and not card.ipa:
+                    card.ipa = ipa
         with self.repository.transaction() as tx:
             self._deck(tx, user_id, deck_id)
             return [self._card_view(tx, user_id, card) for card in tx.cards(deck_id)]
