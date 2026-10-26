@@ -6,7 +6,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select, update
+from sqlalchemy import delete, false, or_, select, true, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -146,9 +146,13 @@ class AdminStudentService:
                 )
             )
         if status == "active":
-            statement = statement.where(User.is_active.is_(True), User.archived_at.is_(None))
+            statement = statement.where(
+                User.is_active == true(), User.archived_at.is_(None)
+            )
         elif status == "locked":
-            statement = statement.where(User.is_active.is_(False), User.archived_at.is_(None))
+            statement = statement.where(
+                User.is_active == false(), User.archived_at.is_(None)
+            )
         elif status == "archived":
             statement = statement.where(User.archived_at.is_not(None))
         statement = statement.order_by(User.created_at.desc(), User.id).offset(offset).limit(limit)

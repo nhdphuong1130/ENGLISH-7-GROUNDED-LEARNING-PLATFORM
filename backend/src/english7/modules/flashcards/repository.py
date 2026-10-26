@@ -28,7 +28,18 @@ class FlashcardTransaction:
         self.session = session
 
     def decks(self, user_id: UUID):
-        return list(self.session.scalars(select(FlashcardDeck).where(or_(FlashcardDeck.owner_id == user_id, (FlashcardDeck.kind == 'textbook') & FlashcardDeck.is_active.is_(True))).order_by(FlashcardDeck.unit_number, FlashcardDeck.name)))
+        statement = (
+            select(FlashcardDeck)
+            .where(
+                or_(
+                    FlashcardDeck.owner_id == user_id,
+                    (FlashcardDeck.kind == 'textbook')
+                    & (FlashcardDeck.is_active == true()),
+                )
+            )
+            .order_by(FlashcardDeck.unit_number, FlashcardDeck.name)
+        )
+        return list(self.session.scalars(statement))
 
     def deck(self, deck_id):
         return self.session.get(FlashcardDeck, deck_id)
@@ -40,7 +51,7 @@ class FlashcardTransaction:
         deck = self.deck(deck_id)
         query = select(Flashcard).where(Flashcard.deck_id == deck_id)
         if deck is not None and deck.kind == 'textbook':
-            query = query.where(Flashcard.is_published.is_(True))
+            query = query.where(Flashcard.is_published == true())
         return list(self.session.scalars(query.order_by(Flashcard.word)))
 
     def state(self, user_id, card_id, create=False):

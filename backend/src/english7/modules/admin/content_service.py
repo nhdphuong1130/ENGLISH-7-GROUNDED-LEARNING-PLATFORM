@@ -241,7 +241,7 @@ class AdminContentService:
                     Section.unit_id == unit_id,
                     SourceFragment.printed_page.is_not(None),
                     SourceFragment.review_status == ReviewStatus.VERIFIED,
-                    SourceFragment.is_published.is_(True),
+                    SourceFragment.is_published == true(),
                 )
                 .limit(1)
             )

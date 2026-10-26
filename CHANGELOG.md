@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Make administrator dashboard counts, student status filters, learning
+  progress/flashcard aggregation and grounded unit publication queries compile
+  correctly against production SQL Server `BIT` columns.
+
 ### Added
 - OTP verification for administrator logins from new Android, iOS/PWA or web
   devices, with hashed 30-day trusted-device records, attempt limits and an

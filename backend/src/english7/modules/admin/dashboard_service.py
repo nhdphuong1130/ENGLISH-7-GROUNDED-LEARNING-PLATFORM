@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import false, func, select, true
 from sqlalchemy.orm import Session
 
 from english7.db.models import ContentRevision, Role, TestAttempt, User
@@ -20,10 +20,10 @@ class AdminDashboardService:
             )
             total = session.scalar(base) or 0
             active = session.scalar(
-                base.where(User.is_active.is_(True), User.archived_at.is_(None))
+                base.where(User.is_active == true(), User.archived_at.is_(None))
             ) or 0
             locked = session.scalar(
-                base.where(User.is_active.is_(False), User.archived_at.is_(None))
+                base.where(User.is_active == false(), User.archived_at.is_(None))
             ) or 0
             archived = session.scalar(base.where(User.archived_at.is_not(None))) or 0
             submitted = session.scalar(
