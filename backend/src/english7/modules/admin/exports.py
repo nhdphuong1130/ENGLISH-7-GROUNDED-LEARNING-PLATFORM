@@ -151,6 +151,28 @@ def student_progress_xlsx(students: list[dict]) -> bytes:
     return _xlsx(rows, "Tien do hoc vien")
 
 
+def student_accounts_csv(students: list[dict]) -> bytes:
+    output = StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["Họ tên", "Email/Số điện thoại", "Trường", "Lớp", "Trạng thái"])
+    for item in students:
+        writer.writerow(
+            [
+                item.get("full_name") or "",
+                item["email"],
+                item.get("school_name") or "",
+                item.get("class_name") or "",
+                item["status"],
+            ]
+        )
+    return b"\xef\xbb\xbf" + output.getvalue().encode("utf-8")
+
+
+def student_accounts_xlsx(students: list[dict]) -> bytes:
+    csv_rows = student_accounts_csv(students)[3:].decode("utf-8").splitlines()
+    return _xlsx(list(csv.reader(csv_rows)), "Tai khoan hoc vien")
+
+
 def _xlsx(rows: list[list[str]], sheet_name: str) -> bytes:
     sheet_rows = []
     for row_number, row in enumerate(rows, start=1):

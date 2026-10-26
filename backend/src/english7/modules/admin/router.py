@@ -636,6 +636,8 @@ def get_admin_speaking_history(
 
 
 from english7.modules.admin.students_router import router as students_router
+from english7.modules.admin.dashboard_router import router as dashboard_router
 
 router.include_router(students_router)
+router.include_router(dashboard_router)
 

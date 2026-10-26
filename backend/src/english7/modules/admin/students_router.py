@@ -2,7 +2,7 @@ from datetime import date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
 from english7.core.security import PasswordHasher
@@ -10,6 +10,7 @@ from english7.db.session import get_session_factory
 from english7.modules.admin.audit_service import AdminAuditService
 from english7.modules.admin.dependencies import AdminUser
 from english7.modules.admin.student_service import AdminStudent, AdminStudentService
+from english7.modules.admin.import_service import StudentImportService
 from english7.modules.auth.domain import ProfileGender
 
 
@@ -22,6 +23,14 @@ def get_admin_student_service() -> AdminStudentService:
 
 
 StudentService = Annotated[AdminStudentService, Depends(get_admin_student_service)]
+
+
+def get_admin_import_service() -> StudentImportService:
+    factory = get_session_factory()
+    return StudentImportService(factory, PasswordHasher(), AdminAuditService(factory))
+
+
+ImportService = Annotated[StudentImportService, Depends(get_admin_import_service)]
 
 
 class StudentResponse(BaseModel):
@@ -97,6 +106,75 @@ def list_students(
 ) -> dict[str, Any]:
     items = service.list_students(query=q, status=status, offset=offset, limit=limit)
     return {"items": [_response(item) for item in items], "count": len(items), "offset": offset, "limit": limit}
+
+
+@router.post("/import")
+async def import_students(
+    request: Request,
+    admin: AdminUser,
+    service: ImportService,
+    file: Annotated[UploadFile, File()],
+    dry_run: bool = True,
+) -> dict[str, Any]:
+    try:
+        data = await file.read(5 * 1024 * 1024 + 1)
+        report = service.import_students(
+            data,
+            filename=file.filename or "students.csv",
+            dry_run=dry_run,
+            actor_id=admin.id,
+            **_context(request),
+        )
+        return {
+            "valid_rows": report.valid_rows,
+            "created": report.created,
+            "applied": report.applied,
+            "errors": report.errors,
+        }
+    finally:
+        await file.close()
+
+
+@router.get("/accounts/export")
+def export_student_accounts(
+    _admin: AdminUser,
+    service: StudentService,
+    format: Literal["csv", "xlsx"] = "xlsx",
+) -> Response:
+    from english7.modules.admin.exports import (
+        student_accounts_csv,
+        student_accounts_xlsx,
+    )
+
+    students = service.list_students(
+        query=None,
+        status="all",
+        offset=0,
+        limit=10_000,
+    )
+    rows = [
+        {
+            "email": item.email,
+            "full_name": item.full_name,
+            "school_name": item.school_name,
+            "class_name": item.class_name,
+            "status": item.status,
+        }
+        for item in students
+    ]
+    if format == "csv":
+        content = student_accounts_csv(rows)
+        media_type = "text/csv; charset=utf-8"
+    else:
+        content = student_accounts_xlsx(rows)
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="student-accounts.{format}"'
+        },
+    )
 
 
 @router.get("/{student_id}", response_model=StudentResponse)
