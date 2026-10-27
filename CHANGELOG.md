@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   correctly against production SQL Server `BIT` columns.
 
 ### Added
+- Native Android and iOS/PWA password-manager suggestions and credential saving
+  for login, committed only after student authentication or successful admin OTP.
 - Live administrator dashboard refresh timestamps and complete Android/Web
   content drill-down for Unit → Section → Activity → textbook fragment,
   question-bank records, textbook deck → flashcard, and speaking prompts.
