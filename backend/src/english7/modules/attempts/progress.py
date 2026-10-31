@@ -40,6 +40,19 @@ class ProgressService:
         self._repository = repository
 
     def submit(self, user_id: UUID, quiz_id: UUID, answers: dict[str, str]) -> AttemptResult:
+        def _is_match(ans: str, exp: str | None) -> bool:
+            if not exp or not ans:
+                return False
+            a = ans.strip().casefold()
+            e = exp.strip().casefold()
+            if a == e:
+                return True
+            if len(a) == 1 and (e.startswith(f"{a}.") or e.startswith(f"{a})") or e.startswith(f"{a} ")):
+                return True
+            if len(e) == 1 and (a.startswith(f"{e}.") or a.startswith(f"{e})") or a.startswith(f"{e} ")):
+                return True
+            return False
+
         def grade(questions: list[GradingQuestion]) -> list[GradedAnswer]:
             if not questions:
                 raise ApplicationError('quiz_empty', 'Quiz has no questions', 409)
@@ -47,8 +60,7 @@ class ProgressService:
                 raise ApplicationError('invalid_answers', 'Answer does not belong to this quiz', 422)
             return [GradedAnswer(
                 q.id, answers.get(str(q.id), ''),
-                bool(q.expected and answers.get(str(q.id), '').strip()
-                     and answers[str(q.id)].strip().casefold() == q.expected.strip().casefold()),
+                _is_match(answers.get(str(q.id), ''), q.expected),
             ) for q in questions]
 
         return self._repository.submit(user_id, quiz_id, grade)

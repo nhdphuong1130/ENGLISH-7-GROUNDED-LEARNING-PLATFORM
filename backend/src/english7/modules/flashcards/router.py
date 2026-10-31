@@ -22,7 +22,7 @@ def require_flashcard_user(user: Annotated[AuthUser, Depends(get_current_user)])
     return user
 
 
-def get_flashcard_service(request: Request) -> FlashcardService:
+def create_flashcard_service(pronunciation_provider=None) -> FlashcardService:
     from pathlib import Path
     from english7.core.settings import get_settings
     from english7.modules.flashcards.audio_cache import VocabAudioCache
@@ -37,10 +37,13 @@ def get_flashcard_service(request: Request) -> FlashcardService:
     return FlashcardService(
         SQLAlchemyFlashcardRepository(get_session_factory()),
         audio_cache=audio_cache,
-        pronunciation_provider=getattr(
-            request.app.state, "pronunciation_provider", None
-        ),
+        pronunciation_provider=pronunciation_provider,
     )
+
+
+def get_flashcard_service(request: Request) -> FlashcardService:
+    provider = getattr(request.app.state, "pronunciation_provider", None) if hasattr(request, "app") else None
+    return create_flashcard_service(pronunciation_provider=provider)
 
 
 FlashcardUser = Annotated[AuthUser, Depends(require_flashcard_user)]

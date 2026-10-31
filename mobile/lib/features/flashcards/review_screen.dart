@@ -6,12 +6,14 @@ import 'package:flutter/material.dart';
 import '../../app/learning_api.dart';
 import '../../services/speech_recorder.dart';
 import '../../services/tts_service.dart';
+import 'practice_session_store.dart';
 
 class ReviewScreen extends StatefulWidget {
   final LearningApi api;
   final FlashcardDeck deck;
   final SpeechRecorder? audioPlayer;
   final TtsService? ttsService;
+  final PracticeSessionStore? sessionStore;
 
   const ReviewScreen({
     super.key,
@@ -19,6 +21,7 @@ class ReviewScreen extends StatefulWidget {
     required this.deck,
     this.audioPlayer,
     this.ttsService,
+    this.sessionStore,
   });
 
   @override
@@ -30,7 +33,11 @@ class _ReviewScreenState extends State<ReviewScreen>
   late final SpeechRecorder _player =
       widget.audioPlayer ?? createSpeechRecorder();
   late final TtsService _tts = widget.ttsService ?? NativeTtsService();
+  late final PracticeSessionStore _sessionStore =
+      widget.sessionStore ?? const PracticeSessionStore();
   late Future<List<Flashcard>> _cards;
+  final List<String> _ratings = [];
+  bool _checkedSession = false;
 
   late final AnimationController _flipController;
   late final Animation<double> _flipAnimation;
@@ -55,6 +62,9 @@ class _ReviewScreenState extends State<ReviewScreen>
   void initState() {
     super.initState();
     _cards = widget.api.loadCards(widget.deck.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkSavedSession();
+    });
 
     _flipController = AnimationController(
       vsync: this,
@@ -75,6 +85,57 @@ class _ReviewScreenState extends State<ReviewScreen>
         });
       }
     });
+  }
+
+  Future<void> _checkSavedSession() async {
+    if (_checkedSession) return;
+    _checkedSession = true;
+    try {
+      final cards = await _cards;
+      if (!mounted) return;
+      final saved = await _sessionStore.load(widget.deck.id, 'flashcard');
+      if (saved != null &&
+          saved.currentIndex > 0 &&
+          saved.currentIndex < cards.length) {
+        if (!mounted) return;
+        final shouldResume = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text('Tiếp tục bài học?'),
+            content: Text(
+              'Em đang học dở đến thẻ ${saved.currentIndex + 1}/${saved.totalCards}. Em có muốn tiếp tục không?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Học lại từ đầu'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Tiếp tục'),
+              ),
+            ],
+          ),
+        );
+        if (shouldResume == true && mounted) {
+          setState(() {
+            _index = saved.currentIndex;
+            _ratings.clear();
+            _ratings.addAll(saved.ratings);
+          });
+        } else if (mounted) {
+          await _sessionStore.clear(widget.deck.id, 'flashcard');
+          setState(() {
+            _index = 0;
+            _ratings.clear();
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -183,6 +244,24 @@ class _ReviewScreenState extends State<ReviewScreen>
       _springController.reset();
       await _springController.forward();
       return;
+    }
+
+    _ratings.add(rating);
+    final nextIndex = _index + 1;
+    final cards = await _cards;
+    if (nextIndex < cards.length) {
+      unawaited(_sessionStore.save(PracticeSessionState(
+        deckId: widget.deck.id,
+        mode: 'flashcard',
+        currentIndex: nextIndex,
+        totalCards: cards.length,
+        ratings: List<String>.from(_ratings),
+        scores: const [],
+        attempts: const [],
+        updatedAt: DateTime.now(),
+      )));
+    } else {
+      unawaited(_sessionStore.clear(widget.deck.id, 'flashcard'));
     }
 
     _next();
@@ -296,7 +375,17 @@ class _ReviewScreenState extends State<ReviewScreen>
           }
 
           final card = cards[_index];
-          final progress = (_index + 1) / cards.length;
+          final masteredCount = _ratings.where((r) => r == 'good').length;
+          final masteryPercent =
+              cards.isEmpty ? 0 : ((masteredCount / cards.length) * 100).round();
+          Color masteryColor;
+          if (masteryPercent >= 70) {
+            masteryColor = const Color(0xFF16A34A);
+          } else if (masteryPercent >= 50) {
+            masteryColor = const Color(0xFFD97706);
+          } else {
+            masteryColor = const Color(0xFFDC2626);
+          }
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -323,24 +412,42 @@ class _ReviewScreenState extends State<ReviewScreen>
                               ),
                             ),
                             Text(
-                              '${(progress * 100).toInt()}%',
-                              style: const TextStyle(
+                              'Đã thuộc: $masteredCount/${cards.length} ($masteryPercent%)',
+                              style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.bold,
-                                color: Color(0xFF2563EB),
+                                color: masteryColor,
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(4),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 6,
-                            backgroundColor: const Color(0xFFE2E8F0),
-                            valueColor: const AlwaysStoppedAnimation(Color(0xFF2563EB)),
-                          ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: List.generate(cards.length, (i) {
+                            Color segmentColor;
+                            if (i < _ratings.length) {
+                              segmentColor = _ratings[i] == 'good'
+                                  ? const Color(0xFF16A34A)
+                                  : const Color(0xFFDC2626);
+                            } else if (i == _index) {
+                              segmentColor = const Color(0xFF93C5FD);
+                            } else {
+                              segmentColor = const Color(0xFFE2E8F0);
+                            }
+                            return Expanded(
+                              child: Container(
+                                height: 6,
+                                margin: EdgeInsets.only(
+                                  left: i == 0 ? 0 : 2,
+                                  right: i == cards.length - 1 ? 0 : 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: segmentColor,
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              ),
+                            );
+                          }),
                         ),
                       ],
                     ),

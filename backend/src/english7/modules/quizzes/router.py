@@ -28,6 +28,11 @@ class QuizQuestionItem(BaseModel):
     id: UUID
     prompt: str
     options: list[str] = ["True", "False", "Not given"]
+    question_type: str = "multiple_choice"
+    section: str | None = None
+    passage: str | None = None
+    audio_url: str | None = None
+    audio_title: str | None = None
 
 
 class QuizResponse(BaseModel):
@@ -189,9 +194,28 @@ def generate_quiz(
                             "options", ["True", "False", "Not given"]
                         )
                     ),
+                    question_type=(q.answer_payload or {}).get(
+                        "question_type", q.question_type or "multiple_choice"
+                    ),
+                    section=(q.answer_payload or {}).get("section"),
+                    passage=(q.answer_payload or {}).get("passage"),
+                    audio_url=(q.answer_payload or {}).get("audio_url"),
+                    audio_title=(q.answer_payload or {}).get("audio_title"),
                 )
                 for q in db_questions
             ]
+            def _sec_key(item: QuizQuestionItem) -> str:
+                s = (item.section or "").upper()
+                if "PHẦN A" in s:
+                    return "1"
+                if "PHẦN B" in s:
+                    return "2"
+                if "PHẦN C" in s:
+                    return "3"
+                if "PHẦN D" in s:
+                    return "4"
+                return "5"
+            questions.sort(key=_sec_key)
             if not audio_url:
                 for q in db_questions:
                     if (q.answer_payload or {}).get("audio_url"):
@@ -237,9 +261,28 @@ def generate_remedial_quiz(
                             "options", ["True", "False", "Not given"]
                         )
                     ),
+                    question_type=(q.answer_payload or {}).get(
+                        "question_type", q.question_type or "multiple_choice"
+                    ),
+                    section=(q.answer_payload or {}).get("section"),
+                    passage=(q.answer_payload or {}).get("passage"),
+                    audio_url=(q.answer_payload or {}).get("audio_url"),
+                    audio_title=(q.answer_payload or {}).get("audio_title"),
                 )
                 for q in db_questions
             ]
+            def _sec_key(item: QuizQuestionItem) -> str:
+                s = (item.section or "").upper()
+                if "PHẦN A" in s:
+                    return "1"
+                if "PHẦN B" in s:
+                    return "2"
+                if "PHẦN C" in s:
+                    return "3"
+                if "PHẦN D" in s:
+                    return "4"
+                return "5"
+            questions.sort(key=_sec_key)
     except Exception:
         pass
     return QuizResponse(

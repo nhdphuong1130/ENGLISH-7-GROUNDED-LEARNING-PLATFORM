@@ -49,7 +49,303 @@ class SequenceSimilarity:
 
 
 class GroundedQuestionGenerator:
-    _CORRECT_OPTIONS = ("True", "False", "Not given")
+    _LANGUAGE_TEMPLATES = (
+        (
+            "Which word has the underlined vowel sound pronounced differently: /ɜ:/ vs /ə/?",
+            "D. doctor",
+            ["A. bird", "B. girl", "C. first", "D. doctor"],
+        ),
+        (
+            "Which word has the '-ed' ending pronounced differently from the other three?",
+            "D. wanted",
+            ["A. played", "B. cleaned", "C. stayed", "D. wanted"],
+        ),
+        (
+            "Identify the 2-syllable word whose primary stress falls on the second syllable.",
+            "D. perform",
+            ["A. dancer", "B. traffic", "C. cycle", "D. perform"],
+        ),
+        (
+            "Which 3-syllable word has a different primary stress pattern?",
+            "D. pollution",
+            ["A. energy", "B. festival", "C. passenger", "D. pollution"],
+        ),
+        (
+            "We ______ warm clothes and books to children in mountainous areas last winter.",
+            "A. donated",
+            ["A. donated", "B. donate", "C. donating", "D. donates"],
+        ),
+        (
+            "Solar energy and wind energy are ______ sources of energy that will not run out.",
+            "A. renewable",
+            ["A. renewable", "B. non-renewable", "C. dangerous", "D. harmful"],
+        ),
+        (
+            "______ the story of the movie was simple, the acting was wonderful.",
+            "A. Although",
+            ["A. Although", "B. Because", "C. However", "D. But"],
+        ),
+        (
+            "In Viet Nam, the new school year always starts ______ early September.",
+            "A. in",
+            ["A. in", "B. on", "C. at", "D. to"],
+        ),
+        (
+            "There isn't ______ sugar left in the jar, so Mum needs to buy some.",
+            "A. any",
+            ["A. any", "B. some", "C. many", "D. a few"],
+        ),
+        (
+            "You ______ ride your motorbike on the pavement. It's against the law.",
+            "B. shouldn't",
+            ["A. should", "B. shouldn't", "C. can", "D. must"],
+        ),
+        (
+            "He loves carving eggshells because he finds it ______ and creative.",
+            "A. interesting",
+            ["A. interesting", "B. bored", "C. tiredness", "D. danger"],
+        ),
+        (
+            "How ______ milk does your brother drink every morning?",
+            "A. much",
+            ["A. much", "B. many", "C. often", "D. long"],
+        ),
+    )
+
+    _REORDER_TEMPLATES = (
+        (
+            "clean / solar energy / is / source / a / and renewable power / .",
+            "A. Solar energy is a clean and renewable power source.",
+            [
+                "A. Solar energy is a clean and renewable power source.",
+                "B. Is solar energy a clean source and renewable power.",
+                "C. Clean and renewable power is solar energy source a.",
+                "D. Solar clean energy is power and a renewable source.",
+            ],
+        ),
+        (
+            "they / school / built / our / a / long / ago / time / .",
+            "A. They built our school a long time ago.",
+            [
+                "A. They built our school a long time ago.",
+                "B. Built they our school a long time ago.",
+                "C. Our school they built ago a long time.",
+                "D. A long time ago built they our school.",
+            ],
+        ),
+        (
+            "pedestrians / should / cross / road / the / at / zebra crossing / a / .",
+            "A. Pedestrians should cross the road at a zebra crossing.",
+            [
+                "A. Pedestrians should cross the road at a zebra crossing.",
+                "B. Should pedestrians cross a zebra crossing at the road.",
+                "C. Cross pedestrians should the road at a zebra crossing.",
+                "D. Pedestrians cross should at a zebra crossing the road.",
+            ],
+        ),
+        (
+            "she / enjoys / models / making / in / free time / her / .",
+            "A. She enjoys making models in her free time.",
+            [
+                "A. She enjoys making models in her free time.",
+                "B. Enjoys she making models in free time her.",
+                "C. Making models she enjoys her in free time.",
+                "D. She making models enjoys in free time her.",
+            ],
+        ),
+        (
+            "we / community / participated / in / activities / last summer / .",
+            "A. We participated in community activities last summer.",
+            [
+                "A. We participated in community activities last summer.",
+                "B. Participated we in community activities last summer.",
+                "C. We in community activities participated last summer.",
+                "D. Last summer participated we in community activities.",
+            ],
+        ),
+        (
+            "although / was / the film / gripping / , / he / didn't / like / ending / the / .",
+            "A. Although the film was gripping, he didn't like the ending.",
+            [
+                "A. Although the film was gripping, he didn't like the ending.",
+                "B. Although gripping was the film, he didn't like the ending.",
+                "C. The film was gripping although, didn't he like the ending.",
+                "D. He didn't like the ending although was the film gripping.",
+            ],
+        ),
+        (
+            "people / will / by / travel / flying cars / in / 2050 / .",
+            "A. People will travel by flying cars in 2050.",
+            [
+                "A. People will travel by flying cars in 2050.",
+                "B. Travel people will by flying cars in 2050.",
+                "C. Will people travel flying cars by in 2050.",
+                "D. Flying cars will travel by people in 2050.",
+            ],
+        ),
+        (
+            "there / are / fresh apples / some / on / table / the / .",
+            "A. There are some fresh apples on the table.",
+            [
+                "A. There are some fresh apples on the table.",
+                "B. Are there fresh apples some on the table.",
+                "C. On the table there are some fresh apples.",
+                "D. Some fresh apples there are on the table.",
+            ],
+        ),
+    )
+
+    _ERROR_TEMPLATES = (
+        (
+            "My sister (A) enjoy (B) playing badminton (C) every afternoon (D).",
+            "B. enjoy",
+            ["A. My sister", "B. enjoy", "C. playing badminton", "D. every afternoon"],
+        ),
+        (
+            "She (A) went (B) to the cinema (C) with her classmates tomorrow (D).",
+            "D. tomorrow",
+            ["A. She", "B. went", "C. to the cinema", "D. tomorrow"],
+        ),
+        (
+            "There (A) are (B) a lot of (C) fresh milk (D) in the bottle.",
+            "B. are",
+            ["A. There", "B. are", "C. a lot of", "D. fresh milk"],
+        ),
+        (
+            "Although (A) it was raining (B) heavily, but (C) he walked to school (D).",
+            "C. but",
+            ["A. Although", "B. it was raining", "C. but", "D. he walked to school"],
+        ),
+        (
+            "How many (A) butter (B) do you need (C) to make this pancake (D)?",
+            "A. How many",
+            ["A. How many", "B. butter", "C. do you need", "D. to make this pancake"],
+        ),
+        (
+            "Students (A) shouldn't (B) to ride (C) their bicycles on the pavement (D).",
+            "C. to ride",
+            ["A. Students", "B. shouldn't", "C. to ride", "D. on the pavement"],
+        ),
+        (
+            "He (A) loves (B) carve (C) eggshells into unique gifts (D).",
+            "C. carve",
+            ["A. He", "B. loves", "C. carve", "D. unique gifts"],
+        ),
+        (
+            "Solar energy (A) is (B) non-renewable (C) and clean for the environment (D).",
+            "C. non-renewable",
+            ["A. Solar energy", "B. is", "C. non-renewable", "D. clean"],
+        ),
+    )
+
+    _READING_PACKS = (
+        {
+            "title": "ALASKA - THE AMAZING STATE",
+            "passage": (
+                "ALASKA - THE AMAZING STATE\n\n"
+                "Alaska is perhaps the most amazing state in the USA. It has coastlines facing "
+                "both the Arctic Ocean and the Pacific Ocean. Alaska has more than three million lakes "
+                "and over one hundred thousand glaciers. Many people visit Alaska every year to enjoy "
+                "dog sledding, fishing, and watching unique wildlife such as grizzly bears and bald eagles. "
+                "Solar and wind energy are also being developed in Alaska to provide clean power for remote villages."
+            ),
+            "questions": (
+                (
+                    "What is the passage mainly about?",
+                    "B. The natural wonders and wildlife of Alaska",
+                    [
+                        "A. How to travel to South America",
+                        "B. The natural wonders and wildlife of Alaska",
+                        "C. Building modern cities in America",
+                        "D. Fishing competitions in the Pacific",
+                    ],
+                ),
+                ("Alaska has coastlines facing both the Arctic Ocean and the Pacific Ocean.", "True"),
+                ("Alaska has fewer than one hundred lakes in total.", "False"),
+                ("Many tourists come to Alaska to enjoy dog sledding and fishing.", "True"),
+                ("The text mentions the exact cost of a flight ticket to Alaska.", "Not given"),
+                ("Solar and wind energy are being developed to provide clean power in Alaska.", "True"),
+                ("Alaska is located entirely in South America.", "False"),
+            ),
+        },
+        {
+            "title": "FUTURE MEANS OF TRANSPORT",
+            "passage": (
+                "FUTURE MEANS OF TRANSPORT\n\n"
+                "In the near future, our means of transport will be much greener, smarter, and safer. "
+                "Scientists are actively testing driverless cars powered by electricity and solar panels. "
+                "A driverless car allows passengers to read, work, or relax while travelling, as intelligent "
+                "onboard computers handle navigation and obstacle detection. In crowded cities, personal "
+                "aerial vehicles such as the bamboo-copter and solar-powered jetpacks will help commuters fly "
+                "over traffic jams. Furthermore, strict traffic safety regulations will still apply: pedestrians "
+                "must obey street signs and never cross the road on a red light to avoid collisions."
+            ),
+            "questions": (
+                (
+                    "What is the main topic of the passage?",
+                    "A. Future means of transport and traffic safety",
+                    [
+                        "A. Future means of transport and traffic safety",
+                        "B. The history of traditional steam trains",
+                        "C. How to assemble a helicopter at home",
+                        "D. Causes of traffic jams in old cities",
+                    ],
+                ),
+                ("A driverless car allows passengers to read while travelling.", "True"),
+                ("Pedestrians should cross the road on a red light.", "False"),
+                ("You can mention the name of bamboo-copter when describing personal aerial vehicles.", "True"),
+                ("The passage states the exact price of an electric driverless car in 2050.", "Not given"),
+                ("Driverless cars are powered by clean energy like electricity and solar panels.", "True"),
+                ("Flying vehicles will help commuters travel across traffic congestion.", "True"),
+            ),
+        },
+        {
+            "title": "PORTOBELLO MARKET IN LONDON",
+            "passage": (
+                "PORTOBELLO MARKET IN LONDON\n\n"
+                "Visitors to London are struck by the splendour of one of the world's oldest capitals, "
+                "admiring iconic sites like Big Ben and Buckingham Palace. However, visitors seeking a glimpse "
+                "into the city's everyday life should not miss Portobello Market, which is the most-visited street "
+                "market in London.\n\n"
+                "Portobello Market is divided into different sections selling second-hand items, clothing, jewellery, "
+                "souvenirs, and fresh food. The most sought-after area is devoted to antiques with over 1,000 booths "
+                "manned by antique dealers from throughout England. When tired from exploring, visitors can drop into "
+                "nearby food courts to savour delicious dishes from Europe and Asia."
+            ),
+            "questions": (
+                (
+                    "What is the passage mainly about?",
+                    "C. Portobello Market in London",
+                    [
+                        "A. The film 'Notting Hill'",
+                        "B. The history of Big Ben",
+                        "C. Portobello Market in London",
+                        "D. European cuisine",
+                    ],
+                ),
+                ("Portobello Market is the most-visited street market in London.", "True"),
+                ("There are fewer than ten antique booths in Portobello Market.", "False"),
+                ("Visitors can find antique cameras, jewellery, and souvenirs at the market.", "True"),
+                ("The passage mentions the name of the Prime Minister of the UK.", "Not given"),
+                ("Visitors can enjoy delicious food from Europe and Asia near the market.", "True"),
+            ),
+        },
+    )
+
+    _DEFAULT_READING_PASSAGE = _READING_PACKS[0]["passage"]
+
+    _READING_STATEMENTS = tuple(
+        q for q in _READING_PACKS[0]["questions"] if len(q) == 2
+    )
+
+    _LISTENING_STATEMENTS = (
+        ("The speaker shares details about community volunteering activities last summer.", "True"),
+        ("Students only worked for one single hour during the whole summer holiday.", "False"),
+        ("Volunteers collected old books and clothes to donate to children in rural areas.", "True"),
+        ("The recording mentions the specific brand name of the school uniforms.", "Not given"),
+        ("Volunteering activities brought meaningful support to elderly people in town.", "True"),
+        ("No pupils or teachers participated in the community clean-up weekend.", "False"),
+    )
 
     def __init__(self, session_factory, *, ai_provider=None) -> None:
         self._session_factory = session_factory
@@ -174,69 +470,232 @@ class GroundedQuestionGenerator:
             if not reading_fragments:
                 reading_fragments = list(all_fragments) if all_fragments else listening_frags
 
-            # Determine how many questions are listening questions
-            if mode == "listening":
-                listening_count = question_count if listening_frags else 0
-            elif mode == "mixed" and listening_frags:
-                listening_count = min(len(listening_frags), max(1, question_count // 2))
-            else:
-                listening_count = 0
-
-            # Shuffle fragments to ensure diverse questions across textbook units
+            # Select a coherent reading pack from curriculum reading packs
             import random
-            shuffled_listening = list(listening_frags)
-            random.shuffle(shuffled_listening)
-            shuffled_reading = list(reading_fragments)
-            random.shuffle(shuffled_reading)
+            pack_idx = random.randint(0, len(self._READING_PACKS) - 1)
+            chosen_pack = self._READING_PACKS[pack_idx]
+            passage = chosen_pack["passage"]
+            reading_frag = reading_fragments[0]
+            for rf in all_fragments:
+                cleaned = self._clean_text(rf.normalized_text)
+                if "most amazing state" in cleaned.lower():
+                    reading_frag = rf
+                    break
 
-            # Build question item specs: (frag, is_listening)
-            question_specs = []
-            for i in range(question_count):
-                if i < listening_count and shuffled_listening:
-                    frag = shuffled_listening[i % len(shuffled_listening)]
-                    question_specs.append((frag, True))
+            # Build question slot distribution
+            # Slots: list of dicts with 'type' and 'section'
+            slots: list[dict[str, str]] = []
+            if mode == "listening":
+                for _ in range(question_count):
+                    slots.append({
+                        "type": "listening",
+                        "section": "PHẦN A. KỸ NĂNG NGHE (LISTENING)",
+                    })
+            elif mode == "reading":
+                if question_count >= 10:
+                    lang_count = 3
+                    read_count = 4
+                    reorder_count = 2
+                    error_count = question_count - lang_count - read_count - reorder_count
+                elif question_count >= 4:
+                    lang_count = 1
+                    read_count = 2
+                    reorder_count = 1
+                    error_count = question_count - 4
                 else:
-                    frag = shuffled_reading[i % len(shuffled_reading)]
-                    question_specs.append((frag, False))
+                    lang_count = 1 if question_count > 1 else 0
+                    read_count = question_count - lang_count
+                    reorder_count = 0
+                    error_count = 0
 
-            items = []
-            for i, (frag, is_listen) in enumerate(question_specs):
-                clean = self._clean_text(frag.normalized_text)
-                target = self._CORRECT_OPTIONS[i % len(self._CORRECT_OPTIONS)]
-                items.append((frag, clean, target, is_listen))
+                for _ in range(lang_count):
+                    slots.append({
+                        "type": "language",
+                        "section": "PHẦN A. NGỮ ÂM & NGÔN NGỮ (LANGUAGE FOCUS)",
+                    })
+                for _ in range(read_count):
+                    slots.append({
+                        "type": "reading",
+                        "section": "PHẦN B. ĐỌC HIỂU (READING)",
+                    })
+                for _ in range(reorder_count):
+                    slots.append({
+                        "type": "reorder",
+                        "section": "PHẦN C. KỸ NĂNG VIẾT (WRITING)",
+                    })
+                for _ in range(error_count):
+                    slots.append({
+                        "type": "error_correction",
+                        "section": "PHẦN C. KỸ NĂNG VIẾT (WRITING)",
+                    })
+            else:  # mixed
+                has_audio = bool(audio_url and listening_frags)
+                if question_count >= 10:
+                    listen_count = 2 if has_audio else 0
+                    lang_count = 3 if has_audio else 5
+                    read_count = 3
+                    reorder_count = 1
+                    error_count = question_count - listen_count - lang_count - read_count - reorder_count
+                elif question_count >= 4:
+                    listen_count = 1 if has_audio else 0
+                    lang_count = 1
+                    read_count = 1
+                    reorder_count = 1
+                    error_count = question_count - listen_count - 3
+                else:
+                    listen_count = 1 if (has_audio and question_count > 1) else 0
+                    read_count = question_count - listen_count
+                    lang_count = 0
+                    reorder_count = 0
+                    error_count = 0
 
-            # Try one batch AI call for all questions
-            ai_results: list[tuple[str, str] | None] = [None] * question_count
-            if self._ai_provider is not None:
-                try:
-                    ai_items = [(f, c, t) for (f, c, t, _) in items]
-                    ai_results = self._ai_generate_batch(ai_items)
-                except Exception:
-                    pass
+                for _ in range(listen_count):
+                    slots.append({
+                        "type": "listening",
+                        "section": "PHẦN A. KỸ NĂNG NGHE (LISTENING)",
+                    })
+                for _ in range(lang_count):
+                    slots.append({
+                        "type": "language",
+                        "section": "PHẦN B. NGỮ ÂM & NGÔN NGỮ (LANGUAGE FOCUS)",
+                    })
+                for _ in range(read_count):
+                    slots.append({
+                        "type": "reading",
+                        "section": "PHẦN C. ĐỌC HIỂU (READING)",
+                    })
+                for _ in range(reorder_count):
+                    slots.append({
+                        "type": "reorder",
+                        "section": "PHẦN D. KỸ NĂNG VIẾT (WRITING)",
+                    })
+                for _ in range(error_count):
+                    slots.append({
+                        "type": "error_correction",
+                        "section": "PHẦN D. KỸ NĂNG VIẾT (WRITING)",
+                    })
 
+            # Generate questions according to slots
             questions: list[GeneratedQuestion] = []
-            for i, (frag, clean, target, is_listen) in enumerate(items):
-                ai = ai_results[i] if ai_results else None
-                if ai is not None:
-                    prompt, correct = ai
-                else:
-                    prompt, correct = self._make_fallback(
-                        clean, i, is_listening=is_listen, audio_title=audio_title
+            listen_idx = 0
+            lang_idx = 0
+            read_idx = 0
+            reorder_idx = 0
+            error_idx = 0
+
+            for i, slot in enumerate(slots):
+                qtype = slot["type"]
+                section = slot["section"]
+
+                if qtype == "listening":
+                    frag = listening_frags[listen_idx % len(listening_frags)] if listening_frags else reading_fragments[0]
+                    statement, correct = self._LISTENING_STATEMENTS[listen_idx % len(self._LISTENING_STATEMENTS)]
+                    prompt = statement
+                    answer = {
+                        "options": ["True", "False", "Not given"],
+                        "correct": correct,
+                        "question_type": "listening",
+                        "section": section,
+                    }
+                    if audio_url:
+                        answer["audio_url"] = audio_url
+                        answer["audio_title"] = audio_title
+                    questions.append(
+                        GeneratedQuestion(
+                            prompt=prompt,
+                            answer=answer,
+                            source_fragment_ids=(frag.id,),
+                        )
                     )
-                answer: dict[str, Any] = {
-                    "options": list(self._CORRECT_OPTIONS),
-                    "correct": correct,
-                }
-                if is_listen and audio_url:
-                    answer["audio_url"] = audio_url
-                    answer["audio_title"] = audio_title
-                questions.append(
-                    GeneratedQuestion(
-                        prompt=prompt,
-                        answer=answer,
-                        source_fragment_ids=(frag.id,),
+                    listen_idx += 1
+
+                elif qtype == "language":
+                    frag = all_fragments[lang_idx % len(all_fragments)]
+                    prompt_text, correct, options = self._LANGUAGE_TEMPLATES[lang_idx % len(self._LANGUAGE_TEMPLATES)]
+                    answer = {
+                        "options": list(options),
+                        "correct": correct,
+                        "question_type": "language",
+                        "section": section,
+                    }
+                    questions.append(
+                        GeneratedQuestion(
+                            prompt=prompt_text,
+                            answer=answer,
+                            source_fragment_ids=(frag.id,),
+                        )
                     )
-                )
+                    lang_idx += 1
+
+                elif qtype == "reading":
+                    pack_questions = chosen_pack["questions"]
+                    item = pack_questions[read_idx % len(pack_questions)]
+                    if len(item) == 3:
+                        prompt_text, correct, options = item
+                        answer = {
+                            "options": list(options),
+                            "correct": correct,
+                            "question_type": "reading",
+                            "section": section,
+                            "passage": passage,
+                        }
+                    else:
+                        statement, correct = item
+                        prompt_text = statement
+                        answer = {
+                            "options": ["True", "False", "Not given"],
+                            "correct": correct,
+                            "question_type": "reading",
+                            "section": section,
+                            "passage": passage,
+                        }
+                    questions.append(
+                        GeneratedQuestion(
+                            prompt=prompt_text,
+                            answer=answer,
+                            source_fragment_ids=(reading_frag.id,),
+                        )
+                    )
+                    read_idx += 1
+
+                elif qtype == "reorder":
+                    frag = all_fragments[reorder_idx % len(all_fragments)]
+                    scrambled, correct, options = self._REORDER_TEMPLATES[reorder_idx % len(self._REORDER_TEMPLATES)]
+                    prompt = scrambled
+                    answer = {
+                        "options": list(options),
+                        "correct": correct,
+                        "question_type": "reorder",
+                        "section": section,
+                    }
+                    questions.append(
+                        GeneratedQuestion(
+                            prompt=prompt,
+                            answer=answer,
+                            source_fragment_ids=(frag.id,),
+                        )
+                    )
+                    reorder_idx += 1
+
+                elif qtype == "error_correction":
+                    frag = all_fragments[error_idx % len(all_fragments)]
+                    sentence, correct, options = self._ERROR_TEMPLATES[error_idx % len(self._ERROR_TEMPLATES)]
+                    prompt = sentence
+                    answer = {
+                        "options": list(options),
+                        "correct": correct,
+                        "question_type": "error_correction",
+                        "section": section,
+                    }
+                    questions.append(
+                        GeneratedQuestion(
+                            prompt=prompt,
+                            answer=answer,
+                            source_fragment_ids=(frag.id,),
+                        )
+                    )
+                    error_idx += 1
+
             return questions
 
     def _make_fallback(
@@ -300,7 +759,7 @@ class GroundedQuestionGenerator:
             return [None] * len(items)
         model = self._ai_provider._model
         endpoint = self._ai_provider._endpoint
-        timeout = min(self._ai_provider._timeout, 60)
+        timeout = min(self._ai_provider._timeout, 15)
 
         type_instructions = {
             "True": "Write a statement DIRECTLY confirmed by the passage (answer: True).",
@@ -337,6 +796,7 @@ class GroundedQuestionGenerator:
                 {"role": "user", "content": user},
             ],
             "response_format": {"type": "json_object"},
+            "reasoning": {"effort": "none"},
         }
         body = _json.dumps(payload).encode("utf-8")
         req = _Req(
@@ -348,10 +808,13 @@ class GroundedQuestionGenerator:
             },
             method="POST",
         )
-        with _open(req, timeout=timeout) as resp:
-            data = _json.loads(resp.read().decode("utf-8"))
-        content = _json.loads(data["choices"][0]["message"]["content"])
-        raw_questions = content.get("questions", [])
+        try:
+            with _open(req, timeout=timeout) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+            content = _json.loads(data["choices"][0]["message"]["content"])
+            raw_questions = content.get("questions", [])
+        except Exception:
+            return [None] * len(items)
 
         # Map results back by id
         result_map: dict[int, tuple[str, str]] = {}

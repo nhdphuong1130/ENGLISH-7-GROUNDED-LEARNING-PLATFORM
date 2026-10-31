@@ -16,7 +16,11 @@ from english7.modules.ai.contracts import (
     ScopeStatus,
 )
 from english7.modules.image_uploads.domain import ImageUploadRecord, ImageUploadStatus
-from english7.modules.retrieval.service import Citation, RetrievalRepository
+from english7.modules.retrieval.service import (
+    Citation,
+    RetrievalRepository,
+    resolve_citation_image,
+)
 from english7.modules.tutor.conversations import (
     ConversationHistoryService,
     ConversationRecord,
@@ -139,25 +143,39 @@ class TutorService:
         )
         normalized = re.sub(r"[^a-z0-9 ]+", " ", normalized)
         normalized = " ".join(normalized.split())
-        return normalized in {
-            "hi",
-            "hello",
-            "hey",
-            "good morning",
-            "good afternoon",
-            "good evening",
-            "thanks",
-            "thank you",
-            "bye",
-            "goodbye",
-            "xin chao",
-            "chao",
-            "chao ban",
-            "cam on",
-            "cam on ban",
-            "tam biet",
-            "chao tam biet",
-        }
+        return (
+            normalized in {
+                "hi",
+                "hello",
+                "hey",
+                "good morning",
+                "good afternoon",
+                "good evening",
+                "thanks",
+                "thank you",
+                "bye",
+                "goodbye",
+                "xin chao",
+                "chao",
+                "chao ban",
+                "cam on",
+                "cam on ban",
+                "tam biet",
+                "chao tam biet",
+                "hello how are you",
+                "how are you",
+                "how are you doing",
+                "ban khoe khong",
+                "ban la ai",
+                "ban ten gi",
+                "who are you",
+                "what is your name",
+            }
+            or normalized.startswith("hello ")
+            or normalized.startswith("hi ")
+            or normalized.startswith("xin chao ")
+            or normalized.startswith("chao ")
+        )
 
     def ask(
         self,
@@ -345,6 +363,21 @@ class TutorService:
                 upload_id=upload_id,
             )
             return result
+        if generated.scope_status is ScopeStatus.SOCIAL:
+            result = TutorAnswer(
+                generated.answer,
+                generated.language,
+                (),
+                ScopeStatus.SOCIAL,
+                conversation_id,
+            )
+            self._persist_answer(
+                result,
+                user_id=user_id,
+                question=question,
+                upload_id=upload_id,
+            )
+            return result
         if generated.language != language or not generated.answer:
             raise ApplicationError(
                 "invalid_ai_response", "AI response validation failed", 502
@@ -365,9 +398,13 @@ class TutorService:
                 TutorCitation(
                     fragment_id=fragment_id,
                     unit_number=fragments_by_id[fragment_id].unit_number,
-                    pdf_page=citations_by_id[fragment_id].pdf_page,
-                    printed_page=citations_by_id[fragment_id].printed_page,
-                    image_url=getattr(citations_by_id[fragment_id], "image_url", None),
+                    pdf_page=fragments_by_id[fragment_id].pdf_page,
+                    printed_page=fragments_by_id[fragment_id].printed_page,
+                    image_url=(
+                        citations_by_id[fragment_id].image_url
+                        if fragment_id in citations_by_id
+                        else resolve_citation_image(fragments_by_id[fragment_id])
+                    ),
                 )
                 for fragment_id in generated.citations
             )

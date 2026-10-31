@@ -154,11 +154,12 @@ class Neo4jKnowledgeRepository:
         if max_depth <= 0:
             raise ValueError("Graph depth must be positive")
         depth = min(max_depth, 8)
+        norm_ids = [str(fid).lower() for fid in fragment_ids]
         query = f"""
         MATCH (seed:SourceFragment)
-        WHERE seed.sql_id IN $fragment_ids
+        WHERE toLower(seed.sql_id) IN $fragment_ids
         MATCH path = (seed)-[*1..{depth}]-(neighbor:SourceFragment)
-        WHERE neighbor.verified = true AND NOT neighbor.sql_id IN $fragment_ids
+        WHERE neighbor.verified = true AND NOT toLower(neighbor.sql_id) IN $fragment_ids
         WITH neighbor, min(length(path)) AS distance
         RETURN neighbor AS fragment, 0.0 AS score
         ORDER BY distance, fragment.sql_id
@@ -167,7 +168,7 @@ class Neo4jKnowledgeRepository:
         with self._driver.session(database=self._database) as session:
             records = session.run(
                 query,
-                fragment_ids=[str(fragment_id) for fragment_id in fragment_ids],
+                fragment_ids=norm_ids,
                 result_limit=self._graph_result_limit,
             )
             return [self._candidate(record) for record in records]
@@ -285,13 +286,23 @@ class Neo4jKnowledgeRepository:
         self, seed_fragment_ids: tuple[UUID, ...], max_depth: int = 2
     ) -> list[tuple[RetrievalCandidate, float]]:
         depth = min(max(max_depth, 1), 4)
+        norm_ids = [str(fid).lower() for fid in seed_fragment_ids]
         query = f"""
         MATCH (seed:SourceFragment)
-        WHERE seed.sql_id IN $fragment_ids
+        WHERE toLower(seed.sql_id) IN $fragment_ids
         MATCH path = (seed)-[r:TEACHES|EXPLAINS|PRACTICES|APPEARS_IN|PREREQUISITE_OF*1..{depth}]-(neighbor:SourceFragment)
-        WHERE neighbor.verified = true AND NOT neighbor.sql_id IN $fragment_ids
+        WHERE neighbor.verified = true AND NOT toLower(neighbor.sql_id) IN $fragment_ids
         WITH neighbor,
-             reduce(w = 1.0, rel IN relationships(path) | w * coalesce(rel.weight, 0.5)) AS path_weight,
+             reduce(w = 1.0, rel IN relationships(path) | w * coalesce(rel.weight,
+                case type(rel)
+                    when 'TEACHES' then 0.95
+                    when 'EXPLAINS' then 0.85
+                    when 'PRACTICES' then 0.75
+                    when 'PREREQUISITE_OF' then 0.7
+                    when 'APPEARS_IN' then 0.25
+                    else 0.5
+                end
+             )) AS path_weight,
              length(path) AS dist
         WITH neighbor, max(path_weight * (0.8 ^ (dist - 1))) AS score
         RETURN neighbor AS fragment, score
@@ -301,13 +312,38 @@ class Neo4jKnowledgeRepository:
         with self._driver.session(database=self._database) as session:
             records = session.run(
                 query,
-                fragment_ids=[str(fid) for fid in seed_fragment_ids],
+                fragment_ids=norm_ids,
                 result_limit=self._graph_result_limit,
             )
             return [
                 (self._candidate(record), float(record.get("score", 0.5)))
                 for record in records
             ]
+
+    def concept_search(
+        self, keywords: tuple[str, ...], limit: int = 6
+    ) -> list[RetrievalCandidate]:
+        if not keywords:
+            return []
+        query = """
+        UNWIND $keywords AS kw
+        MATCH (c:KnowledgeConcept)
+        WHERE toLower(c.name) CONTAINS toLower(kw)
+           OR toLower(coalesce(c.explanation_vi, '')) CONTAINS toLower(kw)
+        MATCH (f:SourceFragment)-[r:TEACHES|EXPLAINS|PRACTICES]-(c)
+        WHERE f.verified = true
+        WITH f, max(case type(r) when 'TEACHES' then 0.95 when 'EXPLAINS' then 0.85 else 0.75 end) as score
+        RETURN f AS fragment, score
+        ORDER BY score DESC, f.sql_id
+        LIMIT $limit
+        """
+        with self._driver.session(database=self._database) as session:
+            records = session.run(
+                query,
+                keywords=list(keywords),
+                limit=limit,
+            )
+            return [self._candidate(record) for record in records]
 
 
 @dataclass(frozen=True, slots=True)

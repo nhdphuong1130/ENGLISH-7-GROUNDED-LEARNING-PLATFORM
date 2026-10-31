@@ -17,9 +17,9 @@ Student = Annotated[AuthUser, Depends(require_student)]
 
 
 def get_speaking_service():
-    from english7.modules.flashcards.router import get_flashcard_service
+    from english7.modules.flashcards.router import create_flashcard_service
     settings = get_settings()
-    return SpeakingService(SpeakingRepository(get_session_factory()), get_flashcard_service(),
+    return SpeakingService(SpeakingRepository(get_session_factory()), create_flashcard_service(),
                            LocalSpeechRuntime(settings.speech_runtime_url, settings.speech_timeout_seconds))
 
 

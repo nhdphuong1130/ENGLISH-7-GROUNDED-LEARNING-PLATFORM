@@ -188,28 +188,80 @@ class ApiClient {
   ApiResponse<Map<String, Object?>> _decodeResponse(
     TransportResponse response,
   ) {
-    final decoded = jsonDecode(utf8.decode(response.body));
-    if (decoded is! Map<String, dynamic>) {
+    final traceId = response.headers['x-trace-id'];
+    if (response.body.isEmpty) {
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        return ApiResponse(const {}, traceId);
+      }
+      throw ApiException(
+        code: 'http_${response.statusCode}',
+        message: 'Máy chủ phản hồi lỗi (${response.statusCode})',
+        statusCode: response.statusCode,
+        traceId: traceId,
+      );
+    }
+
+    final String text;
+    try {
+      text = utf8.decode(response.body);
+    } catch (_) {
+      throw ApiException(
+        code: 'invalid_encoding',
+        message: 'Không thể giải mã phản hồi từ máy chủ (${response.statusCode})',
+        statusCode: response.statusCode,
+        traceId: traceId,
+      );
+    }
+
+    Object? decoded;
+    try {
+      decoded = jsonDecode(text);
+    } catch (_) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          code: 'http_${response.statusCode}',
+          message: 'Máy chủ phản hồi lỗi (${response.statusCode})',
+          statusCode: response.statusCode,
+          traceId: traceId,
+        );
+      }
       throw ApiException(
         code: 'invalid_api_response',
         message: 'The API returned an invalid response',
         statusCode: response.statusCode,
-        traceId: response.headers['x-trace-id'],
+        traceId: traceId,
       );
     }
+
+    if (decoded is! Map<String, dynamic>) {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw ApiException(
+          code: 'http_${response.statusCode}',
+          message: 'Máy chủ phản hồi lỗi (${response.statusCode})',
+          statusCode: response.statusCode,
+          traceId: traceId,
+        );
+      }
+      throw ApiException(
+        code: 'invalid_api_response',
+        message: 'The API returned an invalid response',
+        statusCode: response.statusCode,
+        traceId: traceId,
+      );
+    }
+
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(
         code: decoded['code'] as String? ?? 'http_error',
         message: decoded['message'] as String? ?? 'API request failed',
         details: decoded['details'],
-        traceId:
-            decoded['trace_id'] as String? ?? response.headers['x-trace-id'],
+        traceId: decoded['trace_id'] as String? ?? traceId,
         statusCode: response.statusCode,
       );
     }
     return ApiResponse(
       Map<String, Object?>.from(decoded),
-      response.headers['x-trace-id'],
+      traceId,
     );
   }
 }

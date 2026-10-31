@@ -127,3 +127,55 @@ def test_grounded_question_generator_reading_mode():
     assert len(questions) == 2
     for q in questions:
         assert "audio_url" not in q.answer
+
+
+def test_grounded_question_generator_mixed_mode_sections_and_types():
+    from english7.bootstrap import GroundedQuestionGenerator
+
+    frag = type("Frag", (), {
+        "id": uuid4(),
+        "normalized_text": (
+            "Alaska is perhaps the most amazing state in the USA. "
+            "It has coastlines facing both the Arctic Ocean and the Pacific Ocean. "
+            "Solar energy is a clean and renewable source of power. "
+            "They built our school a long time ago in the city."
+        ),
+        "review_status": "verified",
+        "is_published": True,
+    })()
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def scalars(self, query):
+            class Result:
+                def all(inner):
+                    return [frag]
+            return Result()
+
+        def execute(self, query):
+            class Result:
+                def all(inner):
+                    return []
+            return Result()
+
+    generator = GroundedQuestionGenerator(FakeSession)
+    questions = generator.generate(
+        duration_minutes=15, difficulty="medium", question_count=10, mode="mixed"
+    )
+    assert len(questions) == 10
+    types = {q.answer.get("question_type") for q in questions}
+    assert "reorder" in types, f"Expected reorder in types: {types}"
+    assert "error_correction" in types, f"Expected error_correction in types: {types}"
+    assert "reading" in types, f"Expected reading in types: {types}"
+    reading_questions = [q for q in questions if q.answer.get("question_type") == "reading"]
+    assert reading_questions, "Must have reading questions"
+    for rq in reading_questions:
+        assert rq.answer.get("passage"), "Reading question must have a non-empty passage"
+    sections = {q.answer.get("section") for q in questions}
+    assert None not in sections, "All questions must have a section"
+

@@ -127,3 +127,23 @@ def test_addressing_preference_is_bounded_and_owned(history) -> None:
         )
         is None
     )
+
+
+def test_append_first_exchange_updates_default_title(history) -> None:
+    service, _ = history
+    owner_id = uuid4()
+    conversation = service.create(owner_id, "vi", "Đoạn chat mới")
+
+    service.append_exchange(
+        owner_id=owner_id,
+        conversation_id=conversation.id,
+        question="thì hiện tại đơn là gì?",
+        answer="Thì hiện tại đơn diễn tả...",
+        language="vi",
+        citations=(),
+        upload_id=None,
+    )
+
+    updated = service.get(owner_id, conversation.id)
+    assert updated is not None
+    assert updated.title == "thì hiện tại đơn là gì?"

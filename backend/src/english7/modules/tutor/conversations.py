@@ -311,6 +311,8 @@ class SQLAlchemyConversationRepository:
             )
             conversation.updated_at = now
             conversation.expires_at = expires_at
+            if sequence_number == 1 and conversation.title in ("Đoạn chat mới", "Tutor conversation", "New chat"):
+                conversation.title = " ".join(question.split())[:160] or conversation.title
             session.add(row)
             session.commit()
             session.refresh(row)

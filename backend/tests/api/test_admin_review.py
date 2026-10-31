@@ -275,3 +275,124 @@ def test_admin_reads_one_continuous_chat_history_per_student(
     assert conversation_xlsx.content.startswith(b"PK")
     assert conversation_docx.status_code == 200
     assert conversation_docx.content.startswith(b"PK")
+
+
+def test_admin_students_progress_detailed_skills_and_competencies(client, monkeypatch) -> None:
+    from uuid import uuid4
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from english7.db.base import Base
+    from english7.db.models import Role, User, QuizBlueprint, Quiz, QuizQuestion, TestAttempt, StudentAnswer
+    from english7.modules.speaking.models import SpeakingAttempt
+    from english7.modules.flashcards.models import Flashcard, FlashcardDeck, FlashcardReview, FlashcardState
+    from english7.modules.admin import router as admin_router
+    from english7.modules.flashcards.router import get_flashcard_service
+    from english7.modules.flashcards.service import FlashcardService
+    from english7.modules.flashcards.repository import SQLAlchemyFlashcardRepository
+
+    engine = create_engine('sqlite://', connect_args={'check_same_thread': False}, poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    factory = sessionmaker(engine)
+    monkeypatch.setattr(admin_router, 'get_session_factory', lambda: factory)
+    app.dependency_overrides[get_flashcard_service] = lambda: FlashcardService(SQLAlchemyFlashcardRepository(factory))
+
+    admin = AuthUser.new(email="admin@example.com", password_hash="not-returned", role="admin")
+    app.dependency_overrides[get_current_user] = lambda: admin
+
+    with factory() as session:
+        student_role = Role(name="student")
+        admin_role = Role(name="admin")
+        session.add_all([student_role, admin_role])
+        session.flush()
+
+        student = User(email="learner_kpi@example.com", password_hash="fake-hash", role_id=student_role.id, full_name="Learner KPI")
+        session.add(student)
+        session.flush()
+
+        bp = QuizBlueprint(name="Blueprint", duration_minutes=15, difficulty="medium", policy={})
+        session.add(bp)
+        session.flush()
+
+        quiz = Quiz(blueprint_id=bp.id, created_for_user_id=student.id)
+        session.add(quiz)
+        session.flush()
+
+        q_listening = QuizQuestion(
+            quiz_id=quiz.id,
+            prompt="Listen to the volunteer.",
+            question_type="listening",
+            answer_payload={"options": ["A", "B"], "answer": "A"},
+            is_published=True,
+        )
+        q_language = QuizQuestion(
+            quiz_id=quiz.id,
+            prompt="Although it rained, we went out.",
+            question_type="language",
+            answer_payload={"options": ["A", "B"], "answer": "A"},
+            is_published=True,
+        )
+        session.add_all([q_listening, q_language])
+        session.flush()
+
+        attempt = TestAttempt(quiz_id=quiz.id, user_id=student.id, status="submitted")
+        session.add(attempt)
+        session.flush()
+
+        # Listening answer correct, Language answer incorrect
+        ans1 = StudentAnswer(test_attempt_id=attempt.id, question_id=q_listening.id, answer_payload={"selected": "A"}, is_correct=True)
+        ans2 = StudentAnswer(test_attempt_id=attempt.id, question_id=q_language.id, answer_payload={"selected": "B"}, is_correct=False)
+        session.add_all([ans1, ans2])
+
+        # Flashcard
+        deck = FlashcardDeck(name="Deck", kind="personal", owner_id=student.id)
+        session.add(deck)
+        session.flush()
+        card = Flashcard(deck_id=deck.id, word="generous", normalized_word="generous", meaning="willing to give")
+        session.add(card)
+        session.flush()
+        fstate = FlashcardState(user_id=student.id, card_id=card.id, successful_reviews=3, review_count=3)
+        session.add(fstate)
+
+        # Speaking attempt (high score)
+        sp = SpeakingAttempt(
+            user_id=student.id,
+            card_id=card.id,
+            request_hash="req-hash-1",
+            voice_id="en-US-1",
+            model="whisper",
+            prompt="Hello world",
+            transcript="Hello world",
+            result={"match_percent": 95.0},
+            source_label="Unit 1 Practice",
+        )
+        session.add(sp)
+        session.commit()
+
+    try:
+        res = client.get("/api/v1/admin/students/progress")
+        assert res.status_code == 200
+        data = res.json()
+        assert data["total_students"] == 1
+        sdata = data["students"][0]
+        assert sdata["email"] == "learner_kpi@example.com"
+        assert "skills" in sdata
+        assert len(sdata["skills"]) == 4
+
+        skill_map = {sk["key"]: sk for sk in sdata["skills"]}
+        assert skill_map["listening"]["accuracy_percent"] == 100
+        assert skill_map["listening"]["status"] == "mastered"
+        assert skill_map["language"]["accuracy_percent"] == 0
+        assert skill_map["language"]["status"] == "weak"
+        assert skill_map["reading"]["status"] == "missing"
+        assert skill_map["writing"]["status"] == "missing"
+
+        assert "mastered_items" in sdata
+        assert "weak_items" in sdata
+        assert "missing_items" in sdata
+        assert any("generous" in item["title"] for item in sdata["mastered_items"])
+        assert any(item["status"] == "weak" for item in sdata["weak_items"])
+        assert any(item["status"] == "missing" for item in sdata["missing_items"])
+    finally:
+        app.dependency_overrides.clear()
+        engine.dispose()

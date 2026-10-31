@@ -121,6 +121,7 @@ class OpenRouterProvider:
             "model": self._model,
             "messages": self._messages(request),
             "response_format": {"type": "json_object"},
+            "reasoning": {"effort": "none"},
         }
         headers = {
             "Authorization": f"Bearer {self._api_key.get_secret_value()}",
@@ -180,6 +181,7 @@ class OpenRouterProvider:
                 {"role": "user", "content": value},
             ],
             "response_format": {"type": "json_object"},
+            "reasoning": {"effort": "none"},
         }
         try:
             response = self._http.post_json(

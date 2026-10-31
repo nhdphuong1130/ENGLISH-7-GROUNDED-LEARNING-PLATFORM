@@ -286,10 +286,21 @@ class QuizQuestion {
   final String id;
   final String prompt;
   final List<String> options;
+  final String questionType;
+  final String? section;
+  final String? passage;
+  final String? audioUrl;
+  final String? audioTitle;
+
   const QuizQuestion(
     this.id,
     this.prompt, {
     this.options = const ['True', 'False', 'Not given'],
+    this.questionType = 'multiple_choice',
+    this.section,
+    this.passage,
+    this.audioUrl,
+    this.audioTitle,
   });
 }
 
@@ -384,6 +395,59 @@ class QuizResult {
   const QuizResult(this.correct, this.total);
 }
 
+class AdminSkillProgress {
+  final String name;
+  final String key;
+  final int totalQuestions;
+  final int correctAnswers;
+  final int accuracyPercent;
+  final String status;
+
+  const AdminSkillProgress({
+    required this.name,
+    required this.key,
+    required this.totalQuestions,
+    required this.correctAnswers,
+    required this.accuracyPercent,
+    required this.status,
+  });
+
+  factory AdminSkillProgress.fromJson(Map<String, dynamic> json) =>
+      AdminSkillProgress(
+        name: json['name'] as String? ?? '',
+        key: json['key'] as String? ?? '',
+        totalQuestions: json['total_questions'] as int? ?? 0,
+        correctAnswers: json['correct_answers'] as int? ?? 0,
+        accuracyPercent: json['accuracy_percent'] as int? ?? 0,
+        status: json['status'] as String? ?? 'missing',
+      );
+}
+
+class AdminCompetencyItem {
+  final String title;
+  final String category;
+  final int scorePercent;
+  final String detail;
+  final String status;
+
+  const AdminCompetencyItem({
+    required this.title,
+    required this.category,
+    required this.scorePercent,
+    required this.detail,
+    required this.status,
+  });
+
+  factory AdminCompetencyItem.fromJson(Map<String, dynamic> json) =>
+      AdminCompetencyItem(
+        title: json['title'] as String? ?? '',
+        category: json['category'] as String? ?? '',
+        scorePercent: json['score_percent'] as int? ?? 0,
+        detail: json['detail'] as String? ?? '',
+        status: json['status'] as String? ?? 'missing',
+      );
+}
+
 class AdminStudentProgress {
   final String id;
   final String email;
@@ -397,8 +461,17 @@ class AdminStudentProgress {
   final int reviewedCards;
   final int dueCards;
   final int difficultCards;
+  final int masteredCards;
+  final int masteryPercent;
   final int speakingCount;
+  final int speakingAvgScore;
+  final List<AdminSkillProgress> skills;
+  final List<AdminCompetencyItem> masteredItems;
+  final List<AdminCompetencyItem> weakItems;
+  final List<AdminCompetencyItem> missingItems;
   final List<Map<String, dynamic>> recentQuizzes;
+  final List<Map<String, dynamic>> recentSpeaking;
+  final List<Map<String, dynamic>> recentReviews;
 
   const AdminStudentProgress({
     required this.id,
@@ -413,8 +486,17 @@ class AdminStudentProgress {
     required this.reviewedCards,
     required this.dueCards,
     required this.difficultCards,
+    this.masteredCards = 0,
+    this.masteryPercent = 0,
     required this.speakingCount,
+    this.speakingAvgScore = 0,
+    this.skills = const [],
+    this.masteredItems = const [],
+    this.weakItems = const [],
+    this.missingItems = const [],
     this.recentQuizzes = const [],
+    this.recentSpeaking = const [],
+    this.recentReviews = const [],
   });
 
   factory AdminStudentProgress.fromJson(Map<String, dynamic> json) =>
@@ -431,8 +513,29 @@ class AdminStudentProgress {
         reviewedCards: json['reviewed_cards'] as int? ?? 0,
         dueCards: json['due_cards'] as int? ?? 0,
         difficultCards: json['difficult_cards'] as int? ?? 0,
+        masteredCards: json['mastered_cards'] as int? ?? 0,
+        masteryPercent: json['mastery_percent'] as int? ?? 0,
         speakingCount: json['speaking_count'] as int? ?? 0,
+        speakingAvgScore: json['speaking_avg_score'] as int? ?? 0,
+        skills: (json['skills'] as List? ?? [])
+            .map((e) => AdminSkillProgress.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        masteredItems: (json['mastered_items'] as List? ?? [])
+            .map((e) => AdminCompetencyItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        weakItems: (json['weak_items'] as List? ?? [])
+            .map((e) => AdminCompetencyItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
+        missingItems: (json['missing_items'] as List? ?? [])
+            .map((e) => AdminCompetencyItem.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(),
         recentQuizzes: (json['recent_quizzes'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        recentSpeaking: (json['recent_speaking'] as List? ?? [])
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(),
+        recentReviews: (json['recent_reviews'] as List? ?? [])
             .map((e) => Map<String, dynamic>.from(e as Map))
             .toList(),
       );
@@ -442,12 +545,16 @@ class AdminProgressOverview {
   final int totalStudents;
   final int totalQuizzes;
   final int averageAccuracy;
+  final int totalMasteredCards;
+  final int averageSpeakingScore;
   final List<AdminStudentProgress> students;
 
   const AdminProgressOverview({
     required this.totalStudents,
     required this.totalQuizzes,
     required this.averageAccuracy,
+    this.totalMasteredCards = 0,
+    this.averageSpeakingScore = 0,
     required this.students,
   });
 
@@ -456,6 +563,8 @@ class AdminProgressOverview {
         totalStudents: json['total_students'] as int? ?? 0,
         totalQuizzes: json['total_quizzes'] as int? ?? 0,
         averageAccuracy: json['average_accuracy'] as int? ?? 0,
+        totalMasteredCards: json['total_mastered_cards'] as int? ?? 0,
+        averageSpeakingScore: json['average_speaking_score'] as int? ?? 0,
         students: (json['students'] as List? ?? [])
             .map(
               (e) => AdminStudentProgress.fromJson(

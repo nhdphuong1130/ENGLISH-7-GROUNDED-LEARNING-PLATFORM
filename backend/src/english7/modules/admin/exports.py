@@ -120,9 +120,12 @@ def student_progress_csv(students: list[dict]) -> bytes:
             "Tổng số câu",
             "Tỉ lệ đúng (%)",
             "Thẻ đã ôn",
+            "Thẻ đã thuộc",
+            "Tỉ lệ thuộc từ (%)",
             "Thẻ đến hạn",
-            "Thẻ khó",
+            "Thẻ khó/chưa nhớ",
             "Lượt luyện nói",
+            "Điểm TB phát âm (%)",
         ]
     )
     for item in students:
@@ -137,9 +140,12 @@ def student_progress_csv(students: list[dict]) -> bytes:
                 item["total_questions"],
                 item["accuracy_percent"],
                 item["reviewed_cards"],
+                item.get("mastered_cards", 0),
+                item.get("mastery_percent", 0),
                 item["due_cards"],
                 item["difficult_cards"],
                 item["speaking_count"],
+                item.get("speaking_avg_score", 0),
             ]
         )
     return b"\xef\xbb\xbf" + output.getvalue().encode("utf-8")

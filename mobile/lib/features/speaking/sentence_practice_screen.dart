@@ -7,6 +7,7 @@ import '../../api/api_error.dart';
 import '../../app/learning_api.dart';
 import '../../services/speech_recorder.dart';
 import '../../services/tts_service.dart';
+import '../flashcards/practice_session_store.dart';
 
 class SentencePracticeItem {
   final Flashcard card;
@@ -23,6 +24,7 @@ class SentencePracticeScreen extends StatefulWidget {
   final FlashcardDeck deck;
   final SpeechRecorder? recorder;
   final TtsService? ttsService;
+  final PracticeSessionStore? sessionStore;
   final bool isSentenceMode;
 
   const SentencePracticeScreen({
@@ -31,6 +33,7 @@ class SentencePracticeScreen extends StatefulWidget {
     required this.deck,
     this.recorder,
     this.ttsService,
+    this.sessionStore,
     this.isSentenceMode = true,
   });
 
@@ -42,6 +45,11 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
   late final SpeechRecorder _recorder =
       widget.recorder ?? createSpeechRecorder();
   late final TtsService _tts = widget.ttsService ?? NativeTtsService();
+  late final PracticeSessionStore _sessionStore =
+      widget.sessionStore ?? const PracticeSessionStore();
+  String get _sessionMode =>
+      widget.isSentenceMode ? 'speaking_sentence' : 'speaking_word';
+  bool _checkedSession = false;
 
   List<SentencePracticeItem> _items = [];
   bool _loadingCards = true;
@@ -51,6 +59,8 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
   int _failCount = 0;
   int _completedCount = 0;
   double _totalScore = 0.0;
+  final List<double> _scores = [];
+  final List<int> _attempts = [];
 
   bool _recording = false;
   bool _submitting = false;
@@ -111,6 +121,9 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
               : (availableVoices.firstOrNull?.id ?? 'en-GB-SoniaNeural');
           _loadingCards = false;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _checkSavedSession();
+        });
       }
     } catch (_) {
       if (mounted) {
@@ -119,6 +132,80 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
           _loadingCards = false;
         });
       }
+    }
+  }
+
+  Future<void> _checkSavedSession() async {
+    if (_checkedSession) return;
+    _checkedSession = true;
+    try {
+      final saved = await _sessionStore.load(widget.deck.id, _sessionMode);
+      if (saved != null &&
+          saved.currentIndex > 0 &&
+          saved.currentIndex < _items.length) {
+        if (!mounted) return;
+        final shouldResume = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text('Tiếp tục bài học?'),
+            content: Text(
+              'Em đang học dở đến ${widget.isSentenceMode ? "câu" : "từ"} ${saved.currentIndex + 1}/${saved.totalCards}. Em có muốn tiếp tục không?',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(false),
+                child: const Text('Học lại từ đầu'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(ctx).pop(true),
+                child: const Text('Tiếp tục'),
+              ),
+            ],
+          ),
+        );
+        if (shouldResume == true && mounted) {
+          setState(() {
+            _index = saved.currentIndex;
+            _scores.clear();
+            _scores.addAll(saved.scores);
+            _attempts.clear();
+            _attempts.addAll(saved.attempts);
+            _completedCount = _scores.where((s) => s > 0).length;
+            _totalScore = _scores.fold(0.0, (acc, s) => acc + s);
+          });
+        } else if (mounted) {
+          await _sessionStore.clear(widget.deck.id, _sessionMode);
+          setState(() {
+            _index = 0;
+            _scores.clear();
+            _attempts.clear();
+            _completedCount = 0;
+            _totalScore = 0.0;
+          });
+        }
+      }
+    } catch (_) {}
+  }
+
+  void _persistOrClearSession() {
+    final nextIndex = _index + 1;
+    if (nextIndex < _items.length) {
+      unawaited(_sessionStore.save(PracticeSessionState(
+        deckId: widget.deck.id,
+        mode: _sessionMode,
+        currentIndex: nextIndex,
+        totalCards: _items.length,
+        ratings: const [],
+        scores: List<double>.from(_scores),
+        attempts: List<int>.from(_attempts),
+        updatedAt: DateTime.now(),
+      )));
+    } else {
+      unawaited(_sessionStore.clear(widget.deck.id, _sessionMode));
     }
   }
 
@@ -273,8 +360,21 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
           _submitting = false;
           _result = res;
           if (isPassed) {
+            final multiplier = _failCount == 0
+                ? 1.0
+                : _failCount == 1
+                    ? 0.75
+                    : _failCount == 2
+                        ? 0.50
+                        : _failCount == 3
+                            ? 0.25
+                            : 0.10;
+            final effectiveScore =
+                (res.matchPercent * multiplier).clamp(0.0, 100.0);
             _completedCount++;
-            _totalScore += res.matchPercent;
+            _totalScore += effectiveScore;
+            _scores.add(effectiveScore);
+            _attempts.add(_failCount + 1);
           } else {
             _failCount++;
           }
@@ -282,6 +382,7 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
 
         // If >= 80%, auto-advance after 1.8 seconds!
         if (isPassed) {
+          _persistOrClearSession();
           _autoAdvanceTimer = Timer(const Duration(milliseconds: 1800), () {
             if (mounted) {
               _nextItem();
@@ -315,6 +416,11 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
       unawaited(_recorder.stop());
       _recording = false;
     }
+    setState(() {
+      _scores.add(0.0);
+      _attempts.add(_failCount);
+    });
+    _persistOrClearSession();
     _nextItem();
   }
 
@@ -533,11 +639,14 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                   width: double.infinity,
                   child: FilledButton.icon(
                     onPressed: () {
+                      unawaited(_sessionStore.clear(widget.deck.id, _sessionMode));
                       setState(() {
                         _index = 0;
                         _completedCount = 0;
                         _totalScore = 0.0;
                         _failCount = 0;
+                        _scores.clear();
+                        _attempts.clear();
                         _result = null;
                         _error = null;
                       });
@@ -562,7 +671,9 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
     }
 
     final currentItem = _currentItem!;
-    final progress = (_index + 1) / _items.length;
+    final currentAvgScore = _scores.isNotEmpty
+        ? (_totalScore / _scores.length).round()
+        : 0;
     final isPassed = _result != null && _result!.matchPercent >= 80.0;
     final isFailed = _result != null && _result!.matchPercent < 80.0;
 
@@ -575,12 +686,40 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
           onPressed: () => Navigator.of(context).pop(),
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(6),
-          child: LinearProgressIndicator(
-            value: progress,
-            backgroundColor: Colors.grey.shade200,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              Theme.of(context).colorScheme.primary,
+          preferredSize: const Size.fromHeight(8),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            child: Row(
+              children: List.generate(_items.length, (i) {
+                Color segmentColor;
+                if (i < _scores.length) {
+                  final s = _scores[i];
+                  if (s >= 80.0) {
+                    segmentColor = const Color(0xFF16A34A);
+                  } else if (s > 0.0) {
+                    segmentColor = const Color(0xFFD97706);
+                  } else {
+                    segmentColor = const Color(0xFFDC2626);
+                  }
+                } else if (i == _index) {
+                  segmentColor = const Color(0xFF93C5FD);
+                } else {
+                  segmentColor = const Color(0xFFE2E8F0);
+                }
+                return Expanded(
+                  child: Container(
+                    height: 5,
+                    margin: EdgeInsets.only(
+                      left: i == 0 ? 0 : 2,
+                      right: i == _items.length - 1 ? 0 : 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: segmentColor,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                );
+              }),
             ),
           ),
         ),
@@ -604,16 +743,31 @@ class _SentencePracticeScreenState extends State<SentencePracticeScreen> {
                           color: Theme.of(context).colorScheme.primary,
                         ),
                       ),
-                      if (currentItem.card.sourceLabel != null)
-                        Text(
-                          currentItem.card.sourceLabel!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
+                      Text(
+                        'Điểm TB: $currentAvgScore%',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: currentAvgScore >= 70
+                              ? const Color(0xFF16A34A)
+                              : currentAvgScore >= 50
+                                  ? const Color(0xFFD97706)
+                                  : const Color(0xFF64748B),
                         ),
+                      ),
                     ],
                   ),
+                  if (currentItem.card.sourceLabel != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        currentItem.card.sourceLabel!,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 12),
 
                   // Prompt instruction banner

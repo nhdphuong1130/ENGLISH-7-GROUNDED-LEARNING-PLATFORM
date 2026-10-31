@@ -674,13 +674,14 @@ class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
   static List<SourceReference> _citations(Object? rawCitations) =>
       (rawCitations as List<dynamic>? ?? const [])
           .map((raw) {
-            final item = raw as Map<String, dynamic>;
+            final item =
+                raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
             return SourceReference(
-              item['fragment_id'] as String,
-              item['pdf_page'] as int,
-              item['printed_page'] as int?,
-              item['image_url'] as String?,
-              item['unit_number'] as int?,
+              item['fragment_id']?.toString() ?? '',
+              (item['pdf_page'] as num?)?.toInt() ?? 1,
+              (item['printed_page'] as num?)?.toInt(),
+              item['image_url']?.toString(),
+              (item['unit_number'] as num?)?.toInt(),
             );
           })
           .toList(growable: false);
@@ -710,6 +711,12 @@ class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
                 item['id'] as String,
                 item['prompt'] as String,
                 options: options,
+                questionType:
+                    item['question_type'] as String? ?? 'multiple_choice',
+                section: item['section'] as String?,
+                passage: item['passage'] as String?,
+                audioUrl: item['audio_url'] as String?,
+                audioTitle: item['audio_title'] as String?,
               );
             })
             .toList(growable: false);
@@ -785,6 +792,12 @@ class ApiStudentApi with ApiLearning, ApiAdmin implements StudentApi {
                 item['id'] as String,
                 item['prompt'] as String,
                 options: options,
+                questionType:
+                    item['question_type'] as String? ?? 'multiple_choice',
+                section: item['section'] as String?,
+                passage: item['passage'] as String?,
+                audioUrl: item['audio_url'] as String?,
+                audioTitle: item['audio_title'] as String?,
               );
             })
             .toList(growable: false);

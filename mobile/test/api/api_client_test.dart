@@ -171,4 +171,40 @@ void main() {
       ),
     );
   });
+
+  test('handles empty body error response gracefully without FormatException', () async {
+    final transport = FakeTransport(
+      TransportResponse(502, const {}, Uint8List(0)),
+    );
+    final client = ApiClient(config, transport, FakeTokenStore(null));
+
+    await expectLater(
+      client.postJson('/api/v1/auth/otp/send', {'phone': '+84374423251'}),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.statusCode, 'statusCode', 502)
+            .having((error) => error.message, 'message', contains('502')),
+      ),
+    );
+  });
+
+  test('handles HTML error response gracefully without FormatException', () async {
+    final transport = FakeTransport(
+      TransportResponse(
+        502,
+        const {'content-type': 'text/html'},
+        Uint8List.fromList(utf8.encode('<html><body>502 Bad Gateway</body></html>')),
+      ),
+    );
+    final client = ApiClient(config, transport, FakeTokenStore(null));
+
+    await expectLater(
+      client.postJson('/api/v1/auth/otp/send', {'phone': '+84374423251'}),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.statusCode, 'statusCode', 502)
+            .having((error) => error.message, 'message', contains('502')),
+      ),
+    );
+  });
 }

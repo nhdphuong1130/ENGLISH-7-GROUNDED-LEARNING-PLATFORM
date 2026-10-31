@@ -215,11 +215,22 @@ class _TutorScreenState extends State<TutorScreen> {
       if (!mounted) return;
       setState(() => _conversations = List.of(conversations));
       if (_conversationId == null && conversations.isNotEmpty) {
-        await _openConversation(conversations.first.id);
+        final candidate = conversations.firstWhere(
+          (c) => c.title != 'Đoạn chat mới',
+          orElse: () => conversations.first,
+        );
+        await _openConversation(candidate.id);
       }
     } finally {
       if (mounted) setState(() => _loadingHistory = false);
     }
+  }
+
+  static bool _isRefusalAnswer(String answer) {
+    final lower = answer.toLowerCase();
+    return lower.contains('mình chỉ có thể hỗ trợ nội dung trong sách') ||
+        lower.contains('i can only help with content from english 7') ||
+        lower.contains('không có trong phạm vi sgk');
   }
 
   Future<void> _openConversation(String conversationId) async {
@@ -246,7 +257,7 @@ class _TutorScreenState extends State<TutorScreen> {
                     exchange.citations,
                     conversationId: conversation.id,
                   ),
-                  isRefusal: exchange.citations.isEmpty,
+                  isRefusal: _isRefusalAnswer(exchange.answer),
                 ),
               ],
             ),
@@ -261,6 +272,11 @@ class _TutorScreenState extends State<TutorScreen> {
         _conversationFull = false;
       });
       await _loadConversations();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không thể tải cuộc trò chuyện: $error')),
+      );
     }
   }
 
@@ -963,11 +979,25 @@ class _TutorScreenState extends State<TutorScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    for (final citation in msg.result!.citations)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: SourceCitation(source: citation),
-                      ),
+                    Builder(
+                      builder: (context) {
+                        final seenImages = <String>{};
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final citation in msg.result!.citations)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: SourceCitation(
+                                  source: citation,
+                                  hideImage: citation.imageUrl != null &&
+                                      !seenImages.add(citation.imageUrl!),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   ],
                   const SizedBox(height: 6),
                   Row(

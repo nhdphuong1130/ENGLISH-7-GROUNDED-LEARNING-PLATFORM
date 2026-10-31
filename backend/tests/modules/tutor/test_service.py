@@ -151,6 +151,25 @@ def test_vietnamese_greeting_skips_irrelevant_textbook_retrieval() -> None:
     assert retrieval.queries == []
 
 
+def test_conversational_question_returning_social_status_is_accepted() -> None:
+    provider = FakeProvider(
+        lambda request: AIResponse(
+            "I am doing well, thank you! How can I help you learn English today?",
+            request.language,
+            (),
+            ScopeStatus.SOCIAL,
+        )
+    )
+    retrieval = FakeRetrieval(grounded_context())
+    service = TutorService(retrieval, provider)
+
+    answer = service.ask("Hello, how are you?", Language.ENGLISH)
+
+    assert answer.scope_status is ScopeStatus.SOCIAL
+    assert answer.citations == ()
+    assert "doing well" in answer.answer
+
+
 def test_unrelated_question_without_context_remains_out_of_scope() -> None:
     provider = FakeProvider(lambda _: pytest.fail("provider must not be called"))
     service = TutorService(FakeRetrieval(GroundedContext((), ())), provider)

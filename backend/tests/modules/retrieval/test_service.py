@@ -102,3 +102,24 @@ def test_citations_are_deduplicated_and_ordered_by_fused_rank() -> None:
         (12, 10),
         (22, 20),
     ]
+
+
+def test_concept_search_prioritizes_pedagogical_fragments() -> None:
+    class ConceptFakeRepository(FakeRepository):
+        def __init__(self, vector, concept_results):
+            super().__init__(vector)
+            self.concept_results = concept_results
+            self.searched_keywords = None
+
+        def concept_search(self, keywords, limit=5):
+            self.searched_keywords = keywords
+            return self.concept_results
+
+    concept_frag = candidate(unit=1, vector_score=0.95, text="The Present Simple rule", page=12)
+    other_frag = candidate(unit=1, vector_score=0.80, text="General hobbies", page=15)
+    repository = ConceptFakeRepository(vector=[other_frag], concept_results=[concept_frag])
+
+    context = service(repository).retrieve("thì hiện tại đơn là gì")
+
+    assert repository.searched_keywords == ("hiện tại đơn", "present simple")
+    assert context.fragments[0].fragment_id == concept_frag.fragment_id

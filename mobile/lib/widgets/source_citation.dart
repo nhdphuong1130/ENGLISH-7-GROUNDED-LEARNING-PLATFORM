@@ -17,7 +17,8 @@ String resolveMediaUrl(String url) {
 
 class SourceCitation extends StatelessWidget {
   final SourceReference source;
-  const SourceCitation({super.key, required this.source});
+  final bool hideImage;
+  const SourceCitation({super.key, required this.source, this.hideImage = false});
 
   void _showFullImage(BuildContext context, String imageUrl) {
     showDialog<void>(
@@ -74,7 +75,7 @@ class SourceCitation extends StatelessWidget {
               ? '[Unit $unit, Page PDF ${source.pdfPage}]'
               : '[Unit $unit, Page $printed] · PDF ${source.pdfPage}');
 
-    final hasImage = source.imageUrl != null && source.imageUrl!.isNotEmpty;
+    final hasImage = !hideImage && source.imageUrl != null && source.imageUrl!.isNotEmpty;
 
     return Semantics(
       label: 'Nguồn SGK',

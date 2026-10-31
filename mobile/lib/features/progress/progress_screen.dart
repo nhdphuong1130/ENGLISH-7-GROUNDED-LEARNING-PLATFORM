@@ -272,10 +272,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 _buildMetricCard(
                   context,
                   icon: Icons.style_outlined,
-                  title: 'Thẻ ôn & Luyện nói',
+                  title: 'Thẻ đã thuộc',
                   value:
-                      '${(overview?.students ?? []).fold<int>(0, (acc, s) => acc + s.reviewedCards + s.speakingCount)}',
-                  color: Colors.purple,
+                      '${overview?.totalMasteredCards ?? (overview?.students ?? []).fold<int>(0, (acc, s) => acc + s.masteredCards)}',
+                  color: const Color(0xFF16A34A),
+                ),
+                _buildMetricCard(
+                  context,
+                  icon: Icons.record_voice_over_outlined,
+                  title: 'Điểm TB Luyện nói',
+                  value: '${overview?.averageSpeakingScore ?? 0}%',
+                  color: const Color(0xFF2563EB),
                 ),
               ],
             ),
@@ -410,61 +417,142 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               ),
                             ],
                           ),
-                          Visibility(
-                            visible: false,
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 6,
-                              children: [
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              Chip(
+                                visualDensity: VisualDensity.compact,
+                                avatar: const Icon(Icons.assignment, size: 14),
+                                label: Text(
+                                  '${student.completedQuizzes} bài test (${student.accuracyPercent}% đúng)',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Chip(
+                                visualDensity: VisualDensity.compact,
+                                avatar: const Icon(Icons.style, size: 14, color: Color(0xFF16A34A)),
+                                label: Text(
+                                  '${student.masteredCards}/${student.reviewedCards} thẻ thuộc (${student.masteryPercent}%)',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              Chip(
+                                visualDensity: VisualDensity.compact,
+                                avatar: const Icon(Icons.record_voice_over, size: 14, color: Color(0xFF2563EB)),
+                                label: Text(
+                                  '${student.speakingCount} lượt nói (TB: ${student.speakingAvgScore}%)',
+                                  style: const TextStyle(fontSize: 12),
+                                ),
+                              ),
+                              if (student.difficultCards > 0)
                                 Chip(
                                   visualDensity: VisualDensity.compact,
+                                  backgroundColor: const Color(0xFFFEF2F2),
                                   avatar: const Icon(
-                                    Icons.assignment,
+                                    Icons.warning_amber_rounded,
                                     size: 14,
+                                    color: Color(0xFFDC2626),
                                   ),
                                   label: Text(
-                                    '${student.completedQuizzes} bài test (${student.correctAnswers}/${student.totalQuestions} câu)',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                Chip(
-                                  visualDensity: VisualDensity.compact,
-                                  avatar: const Icon(Icons.style, size: 14),
-                                  label: Text(
-                                    '${student.reviewedCards} thẻ ôn',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                Chip(
-                                  visualDensity: VisualDensity.compact,
-                                  avatar: const Icon(
-                                    Icons.record_voice_over,
-                                    size: 14,
-                                  ),
-                                  label: Text(
-                                    '${student.speakingCount} lượt nói',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                ),
-                                if (student.difficultCards > 0)
-                                  Chip(
-                                    visualDensity: VisualDensity.compact,
-                                    avatar: const Icon(
-                                      Icons.warning_amber_rounded,
-                                      size: 14,
-                                      color: Colors.red,
+                                    '${student.difficultCards} thẻ chưa nhớ',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Color(0xFFDC2626),
                                     ),
-                                    label: Text(
-                                      '${student.difficultCards} thẻ khó',
+                                  ),
+                                ),
+                            ],
+                          ),
+                          if (student.skills.isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                for (final sk in student.skills)
+                                  _buildSkillChip(sk),
+                              ],
+                            ),
+                          ],
+                          if (student.masteredItems.isNotEmpty ||
+                              student.weakItems.isNotEmpty ||
+                              student.missingItems.isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Wrap(
+                              spacing: 6,
+                              runSpacing: 4,
+                              children: [
+                                if (student.masteredItems.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF0FDF4),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFF86EFAC),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '🟢 ${student.masteredItems.length} phần đạt',
                                       style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.red,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF15803D),
+                                      ),
+                                    ),
+                                  ),
+                                if (student.weakItems.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFFFFBEB),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFFFDE68A),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '🟠 ${student.weakItems.length} phần yếu',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFFB45309),
+                                      ),
+                                    ),
+                                  ),
+                                if (student.missingItems.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFF8FAFC),
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(
+                                        color: const Color(0xFFCBD5E1),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      '⚪ ${student.missingItems.length} phần thiếu',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF64748B),
                                       ),
                                     ),
                                   ),
                               ],
                             ),
-                          ),
+                          ],
                           if (student.recentQuizzes.isNotEmpty) ...[
                             const SizedBox(height: 8),
                             Divider(
@@ -586,59 +674,533 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
+  Widget _buildSkillChip(AdminSkillProgress skill) {
+    Color color;
+    String prefix;
+    if (skill.key == 'listening') {
+      prefix = 'Nghe';
+    } else if (skill.key == 'language') {
+      prefix = 'Ngôn ngữ';
+    } else if (skill.key == 'reading') {
+      prefix = 'Đọc';
+    } else {
+      prefix = 'Viết';
+    }
+
+    String label;
+    if (skill.status == 'mastered') {
+      color = const Color(0xFF16A34A);
+      label = '$prefix: ${skill.accuracyPercent}% 🟢';
+    } else if (skill.status == 'passed') {
+      color = const Color(0xFF2563EB);
+      label = '$prefix: ${skill.accuracyPercent}% 🔵';
+    } else if (skill.status == 'weak') {
+      color = const Color(0xFFD97706);
+      label = '$prefix: ${skill.accuracyPercent}% 🟠';
+    } else {
+      color = const Color(0xFF64748B);
+      label = '$prefix: Chưa làm ⚪';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSkillProgressRow(AdminSkillProgress skill) {
+    Color color;
+    String badge;
+    if (skill.status == 'mastered') {
+      color = const Color(0xFF16A34A);
+      badge = 'ĐÃ ĐẠT';
+    } else if (skill.status == 'passed') {
+      color = const Color(0xFF2563EB);
+      badge = 'ĐẠT';
+    } else if (skill.status == 'weak') {
+      color = const Color(0xFFD97706);
+      badge = 'YẾU';
+    } else {
+      color = const Color(0xFF64748B);
+      badge = 'CHƯA LÀM';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  skill.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge,
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: skill.totalQuestions > 0
+                  ? (skill.accuracyPercent / 100.0).clamp(0.0, 1.0)
+                  : 0.0,
+              backgroundColor: const Color(0xFFE2E8F0),
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                skill.totalQuestions > 0
+                    ? '${skill.correctAnswers}/${skill.totalQuestions} câu đúng'
+                    : 'Chưa có câu hỏi nào',
+                style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+              ),
+              Text(
+                skill.totalQuestions > 0 ? '${skill.accuracyPercent}%' : '0%',
+                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCompetencySection({
+    required String title,
+    required String subtitle,
+    required List<AdminCompetencyItem> items,
+    required String emptyText,
+    required Color accentColor,
+    required Color bgColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: accentColor),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+          ),
+          const SizedBox(height: 8),
+          if (items.isEmpty)
+            Text(
+              emptyText,
+              style: TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: Colors.grey.shade600),
+            )
+          else
+            ...items.map((item) {
+              return Container(
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: borderColor),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Icon(
+                        item.status == 'mastered'
+                            ? Icons.check_circle_rounded
+                            : item.status == 'weak'
+                                ? Icons.warning_amber_rounded
+                                : Icons.radio_button_unchecked,
+                        size: 15,
+                        color: accentColor,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                          ),
+                          Text(
+                            item.detail,
+                            style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (item.scorePercent > 0)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: accentColor.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${item.scorePercent}%',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: accentColor,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showStudentDetail(
     AdminStudentProgress student,
   ) => showDialog<void>(
     context: context,
-    builder: (context) => AlertDialog(
-      title: const Text('Chi tiết tiến độ'),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              student.fullName?.isNotEmpty == true
-                  ? student.fullName!
-                  : student.email,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            Text(student.email),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+    builder: (context) {
+      final theme = Theme.of(context);
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Chi tiết tiến độ'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Chip(
-                  label: Text(
-                    '${student.completedQuizzes} bài test (${student.correctAnswers}/${student.totalQuestions} câu)',
+                Text(
+                  student.fullName?.isNotEmpty == true
+                      ? student.fullName!
+                      : student.email,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(student.email, style: TextStyle(fontSize: 12, color: Colors.grey.shade600)),
+                Text(
+                  'Lớp: ${student.className ?? "—"} • Trường: ${student.schoolName ?? "—"}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                Chip(label: Text('${student.reviewedCards} thẻ ôn')),
-                Chip(label: Text('${student.dueCards} thẻ đến hạn')),
-                Chip(label: Text('${student.difficultCards} thẻ khó')),
-                Chip(label: Text('${student.speakingCount} lượt nói')),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.assignment, size: 14),
+                      label: Text(
+                        '${student.completedQuizzes} bài test (${student.correctAnswers}/${student.totalQuestions} câu)',
+                      ),
+                    ),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.style, size: 14),
+                      label: Text('${student.reviewedCards} thẻ ôn'),
+                    ),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.check_circle_outline, size: 14, color: Color(0xFF16A34A)),
+                      label: Text('${student.masteredCards} thẻ thuộc (${student.masteryPercent}%)'),
+                    ),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      avatar: const Icon(Icons.record_voice_over, size: 14),
+                      label: Text('${student.speakingCount} lượt nói'),
+                    ),
+                    if (student.speakingCount > 0)
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        avatar: const Icon(Icons.mic, size: 14, color: Color(0xFF2563EB)),
+                        label: Text('Điểm TB nói: ${student.speakingAvgScore}%'),
+                      ),
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text('${student.dueCards} thẻ đến hạn'),
+                    ),
+                    if (student.difficultCards > 0)
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        backgroundColor: const Color(0xFFFEF2F2),
+                        avatar: const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFDC2626)),
+                        label: Text(
+                          '${student.difficultCards} thẻ khó',
+                          style: const TextStyle(color: Color(0xFFDC2626)),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // BẢNG ĐÁNH GIÁ 4 KỸ NĂNG
+                const Text(
+                  '📊 Đánh giá theo 4 kỹ năng',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                if (student.skills.isNotEmpty) ...[
+                  for (final sk in student.skills)
+                    _buildSkillProgressRow(sk),
+                ] else ...[
+                  Text(
+                    'Chưa có dữ liệu làm bài kiểm tra.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+                const SizedBox(height: 16),
+
+                // 🟢 ĐÃ MASTER / ĐẠT CHUẨN
+                _buildCompetencySection(
+                  title: '🟢 ĐÃ MASTER / ĐẠT CHUẨN (Thành thạo)',
+                  subtitle: 'Các kỹ năng, chủ điểm và từ vựng học viên nắm vững (>= 80%)',
+                  items: student.masteredItems,
+                  emptyText: 'Chưa có phần nào đạt chuẩn >= 80%.',
+                  accentColor: const Color(0xFF16A34A),
+                  bgColor: const Color(0xFFF0FDF4),
+                  borderColor: const Color(0xFFBBF7D0),
+                ),
+                const SizedBox(height: 14),
+
+                // 🟠 ĐANG YẾU / CẦN CỦNG CỐ
+                _buildCompetencySection(
+                  title: '🟠 ĐANG YẾU / CẦN CỦNG CỐ (Lỗ hổng kiến thức)',
+                  subtitle: 'Các phần học viên làm sai nhiều hoặc điểm thấp (< 70%)',
+                  items: student.weakItems,
+                  emptyText: 'Học viên không có phần nào bị yếu.',
+                  accentColor: const Color(0xFFD97706),
+                  bgColor: const Color(0xFFFFFBEB),
+                  borderColor: const Color(0xFFFDE68A),
+                ),
+                const SizedBox(height: 14),
+
+                // ⚪ ĐANG THIẾU / CHƯA HỌC
+                _buildCompetencySection(
+                  title: '⚪ ĐANG THIẾU / CHƯA HỌC (Cần làm bài)',
+                  subtitle: 'Các kỹ năng, Unit hoặc hoạt động học viên chưa thực hiện',
+                  items: student.missingItems,
+                  emptyText: 'Học viên đã hoàn thành tất cả các phần.',
+                  accentColor: const Color(0xFF64748B),
+                  bgColor: const Color(0xFFF8FAFC),
+                  borderColor: const Color(0xFFE2E8F0),
+                ),
+                const SizedBox(height: 16),
+
+                // SECTION 1: Luyện phát âm (Speaking)
+                Text(
+                  '🎙️ Luyện phát âm (TB: ${student.speakingAvgScore}%)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 6),
+                if (student.recentSpeaking.isEmpty)
+                  Text(
+                    'Chưa có dữ liệu luyện nói.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  )
+                else
+                  ...student.recentSpeaking.map((sp) {
+                    final score = sp['match_percent'] as int? ?? 0;
+                    final prompt = sp['prompt'] as String? ?? '';
+                    final transcript = sp['transcript'] as String? ?? '';
+                    final label = sp['source_label'] as String? ?? '';
+                    final scoreColor = score >= 80
+                        ? const Color(0xFF16A34A)
+                        : score >= 50
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFFDC2626);
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8FAFC),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (label.isNotEmpty)
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: scoreColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  '$score%',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: scoreColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            prompt,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          if (transcript.isNotEmpty && transcript != prompt)
+                            Text(
+                              'Đã đọc: "$transcript"',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                                color: Colors.grey.shade700,
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 16),
+
+                // SECTION 2: Luyện từ vựng (Flashcards)
+                Text(
+                  '🗂️ Luyện từ vựng (Thuộc: ${student.masteredCards}/${student.reviewedCards} - ${student.masteryPercent}%)',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 6),
+                if (student.recentReviews.isEmpty)
+                  Text(
+                    'Chưa có dữ liệu ôn thẻ.',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  )
+                else
+                  ...student.recentReviews.map((rev) {
+                    final word = rev['word'] as String? ?? '';
+                    final rating = rev['rating'] as String? ?? 'good';
+                    final isGood = rating == 'good';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isGood ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                            size: 16,
+                            color: isGood ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            word,
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                          ),
+                          const Spacer(),
+                          Text(
+                            isGood ? 'Đã nhớ' : 'Chưa nhớ',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isGood ? const Color(0xFF16A34A) : const Color(0xFFDC2626),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                const SizedBox(height: 16),
+
+                // SECTION 3: Bài kiểm tra (Quizzes)
+                if (student.recentQuizzes.isNotEmpty) ...[
+                  const Text(
+                    '📝 Bài kiểm tra gần đây',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  const SizedBox(height: 6),
+                  for (final quiz in student.recentQuizzes)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Điểm: ${quiz["correct"]}/${quiz["total"]} câu đúng',
+                            style: const TextStyle(fontSize: 13),
+                          ),
+                          if (quiz["submitted_at"] != null)
+                            Text(
+                              quiz["submitted_at"].toString().substring(0, 10),
+                              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                            ),
+                        ],
+                      ),
+                    ),
+                ],
               ],
             ),
-            if (student.recentQuizzes.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              const Text(
-                'Bài kiểm tra gần đây',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              for (final quiz in student.recentQuizzes)
-                Text('${quiz["correct"]}/${quiz["total"]} câu đúng'),
-            ],
-          ],
+          ),
         ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Đóng'),
-        ),
-      ],
-    ),
+        actions: [
+          FilledButton.tonal(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      );
+    },
   );
 
   Future<void> _showStudentChatHistory(AdminChatStudentSummary student) async {
