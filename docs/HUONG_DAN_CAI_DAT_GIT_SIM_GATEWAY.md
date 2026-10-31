@@ -182,9 +182,31 @@ Nếu điện thoại đổi IP sau khi kết nối lại Wi-Fi, cập nhật UR
 khởi động lại container `api`. Có thể đặt DHCP reservation trên router để IP
 điện thoại ổn định hơn.
 
-## 8. Kết nối EC2 qua tunnel HTTPS công khai
+## 8. Kết nối EC2 với điện thoại làm SMS Gateway
 
-EC2 không thể truy cập `127.0.0.1` hoặc IP Wi-Fi riêng của điện thoại.
+EC2 không thể truy cập trực tiếp `127.0.0.1` hoặc IP Wi-Fi nội bộ của điện thoại. Có hai cách kết nối:
+
+### 8.1. Phương án 1: Dùng SSH Reverse Tunnel (Khuyên dùng khi cắm cáp vào máy tính)
+
+Trên server EC2, file `.env` đã được cấu hình sẵn:
+```dotenv
+ENGLISH7_SMS_GATEWAY_URL=http://host.docker.internal:18080
+ENGLISH7_SMS_GATEWAY_USERNAME=sms
+ENGLISH7_SMS_GATEWAY_PASSWORD=mat_khau_gateway_cua_ban
+```
+
+Từ máy tính đã cắm cáp USB vào điện thoại Android, chỉ cần chạy script:
+```bash
+bash scripts/sms_tunnel_ec2.sh
+```
+Script sẽ tự động:
+1. Phát hiện điện thoại Android qua ADB;
+2. Kích hoạt ứng dụng SMS Gateway;
+3. Forward cổng ADB `8085 -> 8080`;
+4. Thiết lập SSH Reverse Tunnel: cổng `18080` trên EC2 sẽ chuyển tiếp về SMS Gateway trên điện thoại.
+
+### 8.2. Phương án 2: Kết nối EC2 qua Cloudflare Tunnel (Dùng độc lập không cần máy tính)
+
 Trên điện thoại, dùng Termux và Cloudflare Tunnel để chuyển tiếp HTTPS
 tới Local Server của SMS Gateway:
 
