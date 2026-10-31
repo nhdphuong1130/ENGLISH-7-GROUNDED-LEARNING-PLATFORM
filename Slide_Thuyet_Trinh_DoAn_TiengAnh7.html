@@ -1,0 +1,1203 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Báo Cáo Đồ Án: App Học Tiếng Anh Lớp 7 (English 7 Platform) - HUTECH</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #0a0f1d;
+      --bg-card: rgba(15, 23, 42, 0.75);
+      --bg-card-hover: rgba(30, 41, 59, 0.85);
+      --border-card: rgba(56, 189, 248, 0.2);
+      --border-card-hover: rgba(56, 189, 248, 0.6);
+      --primary: #2563eb;
+      --primary-cyan: #06b6d4;
+      --primary-glow: rgba(6, 182, 212, 0.35);
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --accent-purple: #8b5cf6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-sub: #cbd5e1;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      user-select: none;
+      position: relative;
+    }
+
+    /* Ambient Animated Background */
+    .ambient-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+      background: radial-gradient(circle at 50% 10%, #0f172a 0%, #020617 100%);
+    }
+
+    .ambient-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(140px);
+      opacity: 0.45;
+      animation: floatOrb 18s infinite alternate ease-in-out;
+    }
+
+    .orb-1 {
+      width: 600px;
+      height: 600px;
+      background: #1e40af;
+      top: -150px;
+      left: -120px;
+    }
+
+    .orb-2 {
+      width: 520px;
+      height: 520px;
+      background: #0284c7;
+      bottom: -160px;
+      right: -120px;
+      animation-delay: -6s;
+    }
+
+    .orb-3 {
+      width: 450px;
+      height: 450px;
+      background: #6366f1;
+      top: 30%;
+      left: 55%;
+      animation-delay: -12s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      100% { transform: translate(70px, 50px) scale(1.2); }
+    }
+
+    /* Grid overlay effect */
+    .grid-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-image: linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 1;
+    }
+
+    /* Presentation Header & Controls */
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 68px;
+      padding: 0 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid rgba(56, 189, 248, 0.15);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .project-badge {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-weight: 700;
+      font-size: 15px;
+      letter-spacing: 0.5px;
+      color: #38bdf8;
+    }
+
+    .project-badge .badge-tag {
+      background: rgba(6, 182, 212, 0.15);
+      border: 1px solid rgba(6, 182, 212, 0.4);
+      color: #38bdf8;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 600;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .timer-display {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .timer-display.warning {
+      color: #f59e0b;
+      border-color: rgba(245, 158, 11, 0.5);
+    }
+
+    .timer-display.danger {
+      color: #f43f5e;
+      border-color: rgba(244, 63, 94, 0.5);
+      animation: pulseAlert 1s infinite alternate;
+    }
+
+    @keyframes pulseAlert {
+      0% { box-shadow: 0 0 0 rgba(244, 63, 94, 0); }
+      100% { box-shadow: 0 0 15px rgba(244, 63, 94, 0.6); }
+    }
+
+    .btn-action {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      color: var(--text-sub);
+      padding: 7px 15px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      transition: all 0.25s ease;
+    }
+
+    .btn-action:hover {
+      background: rgba(30, 41, 59, 0.9);
+      border-color: var(--primary-cyan);
+      color: #ffffff;
+      transform: translateY(-1px);
+      box-shadow: 0 0 12px var(--primary-glow);
+    }
+
+    .btn-action.active {
+      background: var(--primary);
+      border-color: var(--primary-cyan);
+      color: #ffffff;
+      box-shadow: 0 0 16px var(--primary-glow);
+    }
+
+    /* Slides Container & Dynamic Animated Transitions */
+    .slides-wrapper {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .slide {
+      position: absolute;
+      width: 92vw;
+      max-width: 1360px;
+      height: 82vh;
+      max-height: 820px;
+      display: none;
+      flex-direction: column;
+      opacity: 0;
+      transform: scale(0.92) translateY(35px);
+      transition: all 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+      pointer-events: none;
+    }
+
+    .slide.active {
+      display: flex;
+      opacity: 1;
+      transform: scale(1) translateY(0);
+      pointer-events: auto;
+    }
+
+    /* Header of Slide */
+    .slide-header {
+      margin-bottom: 24px;
+      animation: headerSlideDown 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes headerSlideDown {
+      0% { opacity: 0; transform: translateY(-20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .slide-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+      background: rgba(6, 182, 212, 0.1);
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .slide-title {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #ffffff 30%, #38bdf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    .slide-subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-weight: 400;
+    }
+
+    /* Slide Content Cards Grid */
+    .slide-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      justify-content: center;
+    }
+
+    /* Staggered Animated Cards (Tối đa 4 - 5 dòng/slide) */
+    .points-list {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .point-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      padding: 20px 24px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+      transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+      opacity: 0;
+      transform: translateX(-30px);
+    }
+
+    /* Active Slide Stagger Animation for Point Cards */
+    .slide.active .point-card:nth-child(1) {
+      animation: cardSlideIn 0.5s 0.15s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide.active .point-card:nth-child(2) {
+      animation: cardSlideIn 0.5s 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide.active .point-card:nth-child(3) {
+      animation: cardSlideIn 0.5s 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide.active .point-card:nth-child(4) {
+      animation: cardSlideIn 0.5s 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .slide.active .point-card:nth-child(5) {
+      animation: cardSlideIn 0.5s 0.55s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    @keyframes cardSlideIn {
+      0% { opacity: 0; transform: translateX(-30px); }
+      100% { opacity: 1; transform: translateX(0); }
+    }
+
+    .point-card:hover {
+      background: var(--bg-card-hover);
+      border-color: var(--border-card-hover);
+      transform: translateX(8px) scale(1.01);
+      box-shadow: 0 8px 30px rgba(6, 182, 212, 0.2);
+    }
+
+    .point-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.2), rgba(6, 182, 212, 0.3));
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      color: #38bdf8;
+      flex-shrink: 0;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.25);
+    }
+
+    .point-body {
+      flex: 1;
+    }
+
+    .point-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .point-tag {
+      font-size: 11px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(56, 189, 248, 0.15);
+      color: #38bdf8;
+      font-weight: 600;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .point-desc {
+      font-size: 15px;
+      color: var(--text-sub);
+      line-height: 1.5;
+    }
+
+    /* Title Slide Specific Styles */
+    .title-slide-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      height: 100%;
+      gap: 24px;
+    }
+
+    .school-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(37, 99, 235, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 6px 18px;
+      border-radius: 30px;
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .main-project-title {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      background: linear-gradient(135deg, #ffffff 20%, #38bdf8 60%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.15;
+      max-width: 1050px;
+    }
+
+    .members-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      width: 100%;
+      max-width: 920px;
+      margin-top: 10px;
+    }
+
+    .member-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      transition: all 0.3s ease;
+    }
+
+    .member-card:hover {
+      border-color: var(--primary-cyan);
+      transform: translateY(-3px);
+      box-shadow: 0 0 20px var(--primary-glow);
+    }
+
+    .member-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .member-mssv {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      color: #38bdf8;
+      margin-top: 4px;
+    }
+
+    .advisor-pill {
+      margin-top: 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .advisor-name {
+      color: #f59e0b;
+      font-weight: 700;
+    }
+
+    /* Footer & Navigation Controls */
+    footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      padding: 0 36px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 50;
+      background: rgba(10, 15, 29, 0.85);
+      backdrop-filter: blur(16px);
+      border-top: 1px solid rgba(56, 189, 248, 0.15);
+    }
+
+    .progress-track {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 10%;
+      background: linear-gradient(90deg, #2563eb, #06b6d4);
+      transition: width 0.4s ease;
+      box-shadow: 0 0 10px #06b6d4;
+    }
+
+    .slide-counter {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 14px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+
+    .nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-nav {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #ffffff;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-size: 16px;
+    }
+
+    .btn-nav:hover {
+      background: var(--primary);
+      border-color: var(--primary-cyan);
+      box-shadow: 0 0 14px var(--primary-glow);
+      transform: scale(1.05);
+    }
+
+    /* Speaker Notes Drawer Modal */
+    .notes-drawer {
+      position: fixed;
+      bottom: 74px;
+      right: 36px;
+      width: 440px;
+      max-height: 460px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      border-radius: 14px;
+      padding: 20px;
+      backdrop-filter: blur(20px);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+      z-index: 100;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      animation: drawerSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .notes-drawer.open {
+      display: flex;
+    }
+
+    @keyframes drawerSlideUp {
+      0% { opacity: 0; transform: translateY(20px); }
+      100% { opacity: 1; transform: translateY(0); }
+    }
+
+    .notes-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(56, 189, 248, 0.2);
+      padding-bottom: 10px;
+    }
+
+    .notes-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #38bdf8;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .notes-content {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text-sub);
+      overflow-y: auto;
+      max-height: 360px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Ambient Light Effects -->
+  <div class="ambient-bg">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+  </div>
+  <div class="grid-overlay"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="project-badge">
+      <span>ĐỒ ÁN LẬP TRÌNH THIẾT BỊ DI ĐỘNG</span>
+      <span class="badge-tag">HUTECH • CMP177</span>
+    </div>
+
+    <div class="header-actions">
+      <!-- 15-Minute Presentation Timer -->
+      <div class="timer-display" id="timerDisplay">
+        <span id="timerIcon">⏱️</span>
+        <span id="timeString">15:00</span>
+      </div>
+      <button class="btn-action" id="toggleTimerBtn" onclick="toggleTimer()">Bắt Đầu</button>
+      <button class="btn-action" id="resetTimerBtn" onclick="resetTimer()">Reset</button>
+      <button class="btn-action" id="toggleNotesBtn" onclick="toggleNotes()">Kịch Bản (N)</button>
+      <button class="btn-action" onclick="toggleFullScreen()">Toàn Màn Hình (F)</button>
+    </div>
+  </header>
+
+  <!-- Slides Wrapper -->
+  <main class="slides-wrapper">
+
+    <!-- SLIDE 1: TRANG TIÊU ĐỀ & THÀNH VIÊN -->
+    <section class="slide active" id="slide-1">
+      <div class="title-slide-container">
+        <div class="school-pill">ĐẠI HỌC CÔNG NGHỆ TP.HCM (HUTECH) • KHOA CNTT</div>
+        <h1 class="main-project-title">APP HỌC TIẾNG ANH LỚP 7</h1>
+        <p class="slide-subtitle" style="font-size: 18px; max-width: 800px;">
+          Nền tảng Tự học Tiếng Anh Di động Có Căn Cứ Sư Phạm & Trợ Giảng AI Chuẩn SGK Global Success
+        </p>
+
+        <div class="advisor-pill">
+          Giảng viên Hướng dẫn: <span class="advisor-name">ThS. Nguyễn Mạnh Hùng</span>
+        </div>
+
+        <div class="members-grid">
+          <div class="member-card">
+            <div class="member-name">Trần Như Bình</div>
+            <div class="member-mssv">MSSV: 2380602921</div>
+          </div>
+          <div class="member-card">
+            <div class="member-name">Nguyễn Hoàng Duy Phương</div>
+            <div class="member-mssv">MSSV: 2380601787</div>
+          </div>
+          <div class="member-card">
+            <div class="member-name">Đỗ Thanh Tòng</div>
+            <div class="member-mssv">MSSV: 2380602283</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2: BÀI TOÁN & GIẢI PHÁP ĐỘT PHÁ -->
+    <section class="slide" id="slide-2">
+      <div class="slide-header">
+        <div class="slide-tag">01 • ĐẶT VẤN ĐỀ & GIẢI PHÁP</div>
+        <h2 class="slide-title">Bài Toán Thực Tế & Giải Pháp Đột Phá</h2>
+        <p class="slide-subtitle">Khắc phục triệt để tình trạng tự học thụ động và AI hallucination (bịa đặt kiến thức).</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">⚠️</div>
+            <div class="point-body">
+              <div class="point-title">Thách Thức Tự Học <span class="point-tag">THỰC TRẠNG</span></div>
+              <div class="point-desc">Học sinh THCS thiếu môi trường luyện phát âm và thường xuyên học thụ động một chiều.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🛡️</div>
+            <div class="point-body">
+              <div class="point-title">Nguy Cơ AI Đại Trà <span class="point-tag">RỦI RO</span></div>
+              <div class="point-desc">Các chatbot AI tự do dễ sinh nội dung sai lệch, không khớp chương trình chuẩn của Bộ GD&ĐT.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🚀</div>
+            <div class="point-body">
+              <div class="point-title">Giải Pháp Grounded AI <span class="point-tag">ĐỘT PHÁ</span></div>
+              <div class="point-desc">Ứng dụng di động Flutter tích hợp AI có căn cứ sư phạm nghiêm ngặt, tiếp đất trực tiếp vào SGK.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📚</div>
+            <div class="point-body">
+              <div class="point-title">Khung Chuẩn Kiến Thức <span class="point-tag">100% SGK</span></div>
+              <div class="point-desc">Bám sát toàn bộ 12 Unit và các bài Review của SGK Tiếng Anh 7 Global Success (Tập 1 & 2).</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 3: GIA SƯ AI GRAPHRAG -->
+    <section class="slide" id="slide-3">
+      <div class="slide-header">
+        <div class="slide-tag">02 • CÔNG NGHỆ CỐT LÕI</div>
+        <h2 class="slide-title">Gia Sư AI GraphRAG — Căn Cứ Sư Phạm 100%</h2>
+        <p class="slide-subtitle">Sự kết hợp giữa Đồ thị Tri thức và Vector Search giúp AI trả lời chuẩn mực tuyệt đối.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">🧠</div>
+            <div class="point-body">
+              <div class="point-title">Truy Xuất Lai Hybrid GraphRAG <span class="point-tag">NEO4J + FASTEMBED</span></div>
+              <div class="point-desc">Kết hợp đồ thị tri thức Neo4j và vector nhúng cục bộ FastEmbed (384-d) siêu tốc.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🎯</div>
+            <div class="point-body">
+              <div class="point-title">Cam Kết Trích Dẫn 100% <span class="point-tag">[UNIT X, TRANG Y]</span></div>
+              <div class="point-desc">Mọi câu giải thích của gia sư AI đều gắn kèm số trang và Unit cụ thể trong sách giáo khoa.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">⚡</div>
+            <div class="point-body">
+              <div class="point-title">Hợp Nhất Điểm RRF <span class="point-tag">RECIPROCAL RANK FUSION</span></div>
+              <div class="point-desc">Thuật toán RRF xếp hạng đa nguồn, loại bỏ toàn bộ dữ liệu suy diễn ngoài phạm vi bài học.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📷</div>
+            <div class="point-body">
+              <div class="point-title">Thị Giác Đa Phương Thức <span class="point-tag">MULTIMODAL VISION</span></div>
+              <div class="point-desc">Chụp ảnh bài tập trực tiếp từ Camera điện thoại, AI nhận diện và hướng dẫn giải từng bước.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 4: LUYỆN PHÁT ÂM SPEECH AI -->
+    <section class="slide" id="slide-4">
+      <div class="slide-header">
+        <div class="slide-tag">03 • TƯƠNG TÁC ÂM THANH</div>
+        <h2 class="slide-title">Luyện Phát Âm Speech AI — Phản Hồi Thời Gian Thực</h2>
+        <p class="slide-subtitle">Chấm điểm phát âm tự động và rèn luyện khẩu hình chính xác theo âm vị chuẩn quốc tế.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">🎙️</div>
+            <div class="point-body">
+              <div class="point-title">Công Nghệ Nhận Diện Whisper <span class="point-tag">SPEECH RUNTIME</span></div>
+              <div class="point-desc">Mô hình AI Whisper phân tích âm sắc giọng đọc học sinh và đối soát với câu mẫu SGK.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📉</div>
+            <div class="point-body">
+              <div class="point-title">Trừ Điểm Lũy Tiến Thông Minh <span class="point-tag">ĐO LƯỜNG THỰC</span></div>
+              <div class="point-desc">Đọc chuẩn lần đầu đạt 100% điểm; cho phép thử lại tối đa 5 lần với số điểm giảm dần.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">⏭️</div>
+            <div class="point-body">
+              <div class="point-title">Nút Bỏ Qua Tự Động <span class="point-tag">PHÁT HIỆN LỖ HỔNG</span></div>
+              <div class="point-desc">Xuất hiện sau 5 lần thử sai, ghi nhận 0 điểm để phản ánh đúng thực chất năng lực học sinh.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">💾</div>
+            <div class="point-body">
+              <div class="point-title">Khôi Phục Phiên Học Liền Mạch <span class="point-tag">SESSION RESUME</span></div>
+              <div class="point-desc">Tự động ghi nhớ câu đang luyện đọc, bảo toàn điểm số và câu hỏi khi vô tình thoát app.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 5: FLASHCARD SM-2 & ĐA NGÔN NGỮ -->
+    <section class="slide" id="slide-5">
+      <div class="slide-header">
+        <div class="slide-tag">04 • KHOA HỌC NÃO BỘ</div>
+        <h2 class="slide-title">Thẻ Ghi Nhớ SM-2 & Phát Âm Đa Ngôn Ngữ</h2>
+        <p class="slide-subtitle">Ứng dụng thuật toán lặp lại ngắt quãng để ghi nhớ từ vựng vĩnh viễn vào trí nhớ dài hạn.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">⏳</div>
+            <div class="point-body">
+              <div class="point-title">Thuật Toán SuperMemo-2 (SM-2) <span class="point-tag">SPACED REPETITION</span></div>
+              <div class="point-desc">Tự động tính toán khoảng cách ngày ôn tối ưu dựa trên điểm đánh giá nhớ của học sinh.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🏷️</div>
+            <div class="point-body">
+              <div class="point-title">Phân Loại Thẻ Tự Động <span class="point-tag">3 TRẠNG THÁI</span></div>
+              <div class="point-desc">Tự động phân nhóm: Thẻ đã thuộc (Mastered), Thẻ đến hạn ôn (Due), Thẻ khó (Difficult).</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🔊</div>
+            <div class="point-body">
+              <div class="point-title">Giọng Đọc Bản Ngữ Anh - Mỹ <span class="point-tag">EDGE-TTS NEURAL</span></div>
+              <div class="point-desc">Tích hợp giọng đọc tự nhiên chuẩn quốc tế JennyNeural và GuyNeural giúp phát âm chuẩn xác.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🇻🇳</div>
+            <div class="point-body">
+              <div class="point-title">Thuyết Minh Tiếng Việt Song Ngữ <span class="point-tag">VIENEU TTS</span></div>
+              <div class="point-desc">Hỗ trợ đọc nghĩa tiếng Việt truyền cảm, tạo môi trường học song ngữ gần gũi và dễ tiếp thu.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6: ĐỀ THI 4 KỸ NĂNG & RADAR CHẨN ĐOÁN -->
+    <section class="slide" id="slide-6">
+      <div class="slide-header">
+        <div class="slide-tag">05 • ĐÁNH GIÁ CHUẨN HÓA</div>
+        <h2 class="slide-title">Đề Thi 4 Kỹ Năng & Radar Chẩn Đoán Lỗ Hổng</h2>
+        <p class="slide-subtitle">Mô phỏng 100% cấu trúc đề thi chính thức của Bộ Giáo dục & Đào tạo Việt Nam.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">📋</div>
+            <div class="point-body">
+              <div class="point-title">Chuẩn 4 Kỹ Năng Bộ GD&ĐT <span class="point-tag">NGHE - NGỮ ÂM - ĐỌC - VIẾT</span></div>
+              <div class="point-desc">Phần nghe giới hạn lượt nghe nghiêm túc; phần ngôn ngữ kiểm tra phát âm và trọng âm.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📖</div>
+            <div class="point-body">
+              <div class="point-title">Trích Dẫn Bài Đọc Toàn Văn SGK <span class="point-tag">GLOBAL SUCCESS</span></div>
+              <div class="point-desc">Trích dẫn chuẩn bản quyền: Unit 11 Future Transport, Unit 12 Alaska, Portobello Market...</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📡</div>
+            <div class="point-body">
+              <div class="point-title">Radar Chẩn Đoán Lỗ Hổng <span class="point-tag">GAP DIAGNOSTICS</span></div>
+              <div class="point-desc">Tự động phát hiện các chuyên đề kiến thức bị hổng (tỷ lệ trả lời sai vượt quá 40%).</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📊</div>
+            <div class="point-body">
+              <div class="point-title">Ma Trận Năng Lực 3 Trạng Thái <span class="point-tag">DÀNH CHO GIÁO VIÊN</span></div>
+              <div class="point-desc">Trực quan hóa năng lực học sinh rõ ràng: Đạt chuẩn 🟢 — Cần củng cố 🟠 — Chưa học ⚪.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 7: BẢO MẬT ZERO-TRUST & SMS OTP SIM THỰC -->
+    <section class="slide" id="slide-7">
+      <div class="slide-header">
+        <div class="slide-tag">06 • BẢO MẬT HỆ THỐNG</div>
+        <h2 class="slide-title">Bảo Mật Zero-Trust & SMS OTP Gateway Vật Lý</h2>
+        <p class="slide-subtitle">Kiến trúc bảo mật cấp doanh nghiệp bảo vệ tuyệt đối dữ liệu học sinh và tài khoản quản trị.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">🔒</div>
+            <div class="point-body">
+              <div class="point-title">Mã Hóa Tối Tân Argon2id <span class="point-tag">STATELESS JWT</span></div>
+              <div class="point-desc">Bảo vệ mật khẩu chống tấn công GPU/Brute-force; phiên đăng nhập Stateless an toàn.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📱</div>
+            <div class="point-body">
+              <div class="point-title">SMS OTP Qua Modem SIM Vật Lý <span class="point-tag">GSM GATEWAY</span></div>
+              <div class="point-desc">Tích hợp Reverse SSH Tunnel kết nối thẳng từ Cloud về thiết bị GSM gửi SMS OTP tức thì.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🛡️</div>
+            <div class="point-body">
+              <div class="point-title">Ràng Buộc Thiết Bị Admin <span class="point-tag">DEVICE BINDING</span></div>
+              <div class="point-desc">Chính sách Zero-Trust: Kích hoạt thử thách OTP khi quản trị viên đăng nhập trên máy mới.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">👥</div>
+            <div class="point-body">
+              <div class="point-title">Kiểm Soát Phân Quyền Vai Trò <span class="point-tag">ROLE ISOLATION</span></div>
+              <div class="point-desc">Tách biệt triệt để API Contract và dữ liệu lưu trữ giữa vai trò Học Sinh và Quản Trị Viên.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 8: KIẾN TRÚC TOÀN DIỆN & CÔNG NGHỆ CỐT LÕI -->
+    <section class="slide" id="slide-8">
+      <div class="slide-header">
+        <div class="slide-tag">07 • KIẾN TRÚC TOÀN HỆ THỐNG</div>
+        <h2 class="slide-title">Kiến Trúc Toàn Diện & Công Nghệ Cốt Lõi</h2>
+        <p class="slide-subtitle">Sự phối hợp chặt chẽ giữa Mobile đa nền tảng, Backend hiệu năng cao và Multi-database.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">📱</div>
+            <div class="point-body">
+              <div class="point-title">Mobile Client <span class="point-tag">FLUTTER 3.27+ / DART</span></div>
+              <div class="point-desc">Clean Architecture, Provider/BLoC quản lý trạng thái, hỗ trợ Android APK và iOS Web PWA.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">⚙️</div>
+            <div class="point-body">
+              <div class="point-title">Backend API <span class="point-tag">PYTHON 3.12 / FASTAPI</span></div>
+              <div class="point-desc">Kiến trúc module phân tách rõ ràng, tích hợp Whisper Runtime và FastEmbed cục bộ.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🗄️</div>
+            <div class="point-body">
+              <div class="point-title">Cơ Sở Dữ Liệu Đa Mô Hình <span class="point-tag">SQL SERVER + NEO4J + MINIO</span></div>
+              <div class="point-desc">SQL Server lưu hồ sơ/bài thi, Neo4j lưu đồ thị tri thức, MinIO S3 lưu audio và hình ảnh.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🐳</div>
+            <div class="point-body">
+              <div class="point-title">Hạ Tầng DevOps Đóng Gói <span class="point-tag">DOCKER COMPOSE + CADDY</span></div>
+              <div class="point-desc">Triển khai đồng bộ bằng Docker, Caddy Reverse Proxy tự động cấp phát chứng chỉ SSL/TLS.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 9: KẾT QUẢ THỬ NGHIỆM & HƯỚNG PHÁT TRIỂN -->
+    <section class="slide" id="slide-9">
+      <div class="slide-header">
+        <div class="slide-tag">08 • ĐÁNH GIÁ THỰC TẾ</div>
+        <h2 class="slide-title">Kết Quả Thử Nghiệm & Hướng Phát Triển</h2>
+        <p class="slide-subtitle">Đánh giá hiệu năng thực tế trên thiết bị di động và kế hoạch mở rộng trong tương lai.</p>
+      </div>
+      <div class="slide-content">
+        <div class="points-list">
+          <div class="point-card">
+            <div class="point-icon">⚡</div>
+            <div class="point-body">
+              <div class="point-title">Hiệu Năng Vượt Trội <span class="point-tag">LATENCY < 300MS</span></div>
+              <div class="point-desc">Thời gian phản hồi API dưới 300ms, gia sư AI trích dẫn xuất xứ SGK hoàn tất trong 2 giây.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📈</div>
+            <div class="point-body">
+              <div class="point-title">Cải Thiện Năng Lực Học Sinh <span class="point-tag">+35% PHẢN XẠ</span></div>
+              <div class="point-desc">Học sinh tăng 35% khả năng phát âm chuẩn và cải thiện rõ rệt tỷ lệ nhớ từ vựng sau 2 tuần.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">📚</div>
+            <div class="point-body">
+              <div class="point-title">Mở Rộng Dữ Liệu SGK <span class="point-tag">LỚP 8, 9 & THPT</span></div>
+              <div class="point-desc">Sẵn sàng mở rộng nạp đồ thị tri thức cho toàn bộ cấp THCS và THPT theo chuẩn Bộ GD&ĐT.</div>
+            </div>
+          </div>
+          <div class="point-card">
+            <div class="point-icon">🎮</div>
+            <div class="point-body">
+              <div class="point-title">Đấu Trường Từ Vựng Đa Người Chơi <span class="point-tag">REALTIME ARENA</span></div>
+              <div class="point-desc">Tính năng thi đấu đối kháng từ vựng và phát âm theo nhóm bạn qua kết nối WebSockets.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 10: TỔNG KẾT & HỎI ĐÁP -->
+    <section class="slide" id="slide-10">
+      <div class="title-slide-container">
+        <div class="school-pill" style="border-color: rgba(16, 185, 129, 0.5); color: #10b981; background: rgba(16, 185, 129, 0.1);">
+          KẾT THÚC BÁO CÁO • BẢO VỆ ĐỒ ÁN
+        </div>
+        <h2 class="main-project-title" style="font-size: 52px;">TỔNG KẾT & HỎI ĐÁP (Q&A)</h2>
+        <p class="slide-subtitle" style="font-size: 18px; max-width: 800px;">
+          Sản phẩm là sự kết hợp sáng tạo giữa Ứng dụng Di động Hiện đại và Trí tuệ Nhân tạo Sư phạm Chuẩn mực.
+        </p>
+
+        <div style="background: var(--bg-card); border: 1px solid var(--border-card); padding: 24px 36px; border-radius: 16px; margin-top: 10px; max-width: 760px; text-align: center;">
+          <p style="font-size: 16px; color: #ffffff; line-height: 1.6;">
+            Nhóm 3 xin chân thành gửi lời cảm ơn sâu sắc đến <strong style="color: #f59e0b;">ThS. Nguyễn Mạnh Hùng</strong> đã tận tình định hướng và chỉ dẫn chúng em trong suốt học phần!
+          </p>
+          <div style="margin-top: 16px; color: #38bdf8; font-weight: 700; font-size: 17px;">
+            Kính mời Thầy Cô trong Hội đồng đặt câu hỏi và đóng góp ý kiến cho nhóm ạ!
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer Navigation -->
+  <footer>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressBar"></div>
+    </div>
+
+    <div class="slide-counter" id="slideIndicator">
+      Slide 01 / 10
+    </div>
+
+    <div class="nav-buttons">
+      <button class="btn-nav" onclick="prevSlide()" title="Slide Trước (Phím Mũi tên Trái)">❮</button>
+      <button class="btn-nav" onclick="nextSlide()" title="Slide Sau (Phím Mũi tên Phải / Phím Cách)">❯</button>
+    </div>
+  </footer>
+
+  <!-- Speaker Notes Drawer -->
+  <aside class="notes-drawer" id="notesDrawer">
+    <div class="notes-header">
+      <div class="notes-title" id="notesTitle">Kịch Bản Thuyết Trình (Slide 1)</div>
+      <button class="btn-nav" style="width: 26px; height: 26px; font-size: 12px;" onclick="toggleNotes()">✕</button>
+    </div>
+    <div class="notes-content" id="notesContent">
+      Đang tải kịch bản...
+    </div>
+  </aside>
+
+  <!-- Interactive Slide & Timer Scripts -->
+  <script>
+    // 15-Minute Countdown Presentation Timer
+    let totalSeconds = 15 * 60;
+    let timerInterval = null;
+    let isTimerRunning = false;
+
+    function formatTime(sec) {
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    }
+
+    function updateTimerDisplay() {
+      const display = document.getElementById('timerDisplay');
+      const timeStr = document.getElementById('timeString');
+      timeStr.textContent = formatTime(totalSeconds);
+
+      if (totalSeconds <= 180 && totalSeconds > 60) {
+        display.classList.add('warning');
+        display.classList.remove('danger');
+      } else if (totalSeconds <= 60) {
+        display.classList.add('danger');
+        display.classList.remove('warning');
+      } else {
+        display.classList.remove('warning', 'danger');
+      }
+    }
+
+    function toggleTimer() {
+      const btn = document.getElementById('toggleTimerBtn');
+      if (isTimerRunning) {
+        clearInterval(timerInterval);
+        isTimerRunning = false;
+        btn.textContent = 'Tiếp Tục';
+        btn.classList.remove('active');
+      } else {
+        isTimerRunning = true;
+        btn.textContent = 'Tạm Dừng';
+        btn.classList.add('active');
+        timerInterval = setInterval(() => {
+          if (totalSeconds > 0) {
+            totalSeconds--;
+            updateTimerDisplay();
+          } else {
+            clearInterval(timerInterval);
+            isTimerRunning = false;
+            btn.textContent = 'Hết Giờ';
+          }
+        }, 1000);
+      }
+    }
+
+    function resetTimer() {
+      clearInterval(timerInterval);
+      isTimerRunning = false;
+      totalSeconds = 15 * 60;
+      document.getElementById('toggleTimerBtn').textContent = 'Bắt Đầu';
+      document.getElementById('toggleTimerBtn').classList.remove('active');
+      updateTimerDisplay();
+    }
+
+    // Speaker Notes for 15-Minute Presentation
+    const speakerNotes = [
+      `<strong>Mở đầu (1 phút):</strong> "Kính chào Thầy Nguyễn Mạnh Hùng và các bạn. Chúng em gồm 3 thành viên: Trần Như Bình, Nguyễn Hoàng Duy Phương và Đỗ Thanh Tòng. Hôm nay nhóm xin báo cáo đồ án kết thúc môn Lập trình thiết bị di động: App Học Tiếng Anh Lớp 7 - một nền tảng giáo dục di động có trợ giảng AI sư phạm chuẩn mực."`,
+      `<strong>Vấn đề & Đột phá (1.5 phút):</strong> "Thực tế học sinh lớp 7 khi tự học thường thiếu môi trường luyện phát âm và tương tác. Nếu dùng ChatGPT thông thường, AI rất dễ 'bịa đặt' ngữ pháp hoặc từ vựng ngoài chương trình. Vì vậy nhóm xây dựng giải pháp Grounded AI - tiếp đất 100% vào SGK Tiếng Anh 7 Global Success của Bộ GD&ĐT."`,
+      `<strong>Gia sư AI GraphRAG (2.5 phút):</strong> "Điểm sáng cốt lõi đầu tiên là công nghệ Hybrid GraphRAG. Chúng em không gọi prompt thô mà kết hợp Đồ thị tri thức Neo4j và mô hình nhúng vector cục bộ FastEmbed. Nhờ thuật toán RRF, 100% câu trả lời đều trích dẫn chính xác [Unit X, Trang Y]. Học sinh còn có thể chụp ảnh bài tập từ camera điện thoại để AI giảng bài."`,
+      `<strong>Luyện phát âm Speech AI (2 phút):</strong> "Thứ hai là tính năng Luyện nói thời gian thực. Giọng học sinh được xử lý bởi mô hình Whisper. Đặc biệt, chúng em thiết kế cơ chế trừ điểm lũy tiến: nói đúng ngay lần đầu đạt 100%, cho phép thử lại 5 lần. Nút 'Bỏ qua' ghi nhận 0 điểm sau 5 lần sai để phát hiện lỗ hổng thật, kèm tính năng khôi phục phiên học liền mạch."`,
+      `<strong>Flashcard SM-2 (2 phút):</strong> "Thứ ba là ôn tập từ vựng bằng thuật toán não bộ SuperMemo-2 (SM-2). Hệ thống tự tính chu kỳ quên và nhắc ôn theo 3 trạng thái: Đã thuộc, Đến hạn ôn và Thẻ khó. Về âm thanh, chúng em tích hợp Edge-TTS giọng bản ngữ Anh - Mỹ kết hợp VienEU đọc nghĩa tiếng Việt tự nhiên."`,
+      `<strong>Đề thi 4 kỹ năng & Radar (2 phút):</strong> "Thứ tư, hệ thống đề thi mô phỏng 100% cấu trúc chuẩn Bộ GD&ĐT gồm đủ 4 kỹ năng: Listening (giới hạn số lượt nghe), Language Focus, Reading và Writing. Hệ thống tích hợp Radar chẩn đoán, cảnh báo ngay các điểm ngữ pháp học sinh bị hổng (>40% sai) và ma trận năng lực 3 trạng thái cho giáo viên."`,
+      `<strong>Bảo mật Zero-Trust & SMS OTP (1.5 phút):</strong> "Thứ năm, về mặt kỹ thuật hạ tầng, chúng em triển khai kiến trúc bảo mật cấp doanh nghiệp: mật khẩu mã hóa Argon2id, token Stateless JWT, và đặc biệt là hệ thống SMS OTP vật lý - chạy qua Reverse SSH Tunnel kết nối thẳng về GSM Modem SIM thật của nhóm để gửi mã xác thực."`,
+      `<strong>Kiến trúc & Hạ tầng (1.5 phút):</strong> "Về mặt công nghệ: Mobile xây dựng trên Flutter 3.27+ Clean Architecture mượt mà; Backend sử dụng Python 3.12 FastAPI; dữ liệu phân tầng tối ưu với SQL Server 2022 cho dữ liệu quan hệ, Neo4j cho đồ thị sư phạm và MinIO S3 cho lưu trữ âm thanh, hình ảnh."`,
+      `<strong>Thực nghiệm & Tương lai (1 phút):</strong> "Qua thử nghiệm trên thiết bị thật, API phản hồi dưới 300ms, học sinh cải thiện 35% khả năng phát âm sau 2 tuần. Hướng phát triển tới là mở rộng nạp tri thức SGK lớp 8, lớp 9 và xây dựng đấu trường từ vựng thi đấu đối kháng trực tuyến."`,
+      `<strong>Tổng kết & Q&A (Còn lại):</strong> "Thay mặt nhóm, chúng em xin chân thành cảm ơn Thầy Nguyễn Mạnh Hùng đã tận tâm hướng dẫn chúng em trong suốt học phần. Chúng em kính mời Thầy và các bạn đặt câu hỏi cũng như đóng góp ý kiến để nhóm hoàn thiện đồ án tốt hơn nữa ạ!"`
+    ];
+
+    let currentSlide = 1;
+    const totalSlides = 10;
+
+    function updateSlide() {
+      document.querySelectorAll('.slide').forEach((slide, index) => {
+        slide.classList.remove('active');
+        if (index === currentSlide - 1) {
+          slide.classList.add('active');
+        }
+      });
+
+      document.getElementById('slideIndicator').textContent = `Slide ${String(currentSlide).padStart(2, '0')} / ${String(totalSlides).padStart(2, '0')}`;
+      const percentage = (currentSlide / totalSlides) * 100;
+      document.getElementById('progressBar').style.width = `${percentage}%`;
+
+      document.getElementById('notesTitle').textContent = `Kịch Bản Thuyết Trình (Slide ${currentSlide})`;
+      document.getElementById('notesContent').innerHTML = speakerNotes[currentSlide - 1];
+    }
+
+    function nextSlide() {
+      if (currentSlide < totalSlides) {
+        currentSlide++;
+        updateSlide();
+      }
+    }
+
+    function prevSlide() {
+      if (currentSlide > 1) {
+        currentSlide--;
+        updateSlide();
+      }
+    }
+
+    function toggleNotes() {
+      const drawer = document.getElementById('notesDrawer');
+      const btn = document.getElementById('toggleNotesBtn');
+      drawer.classList.toggle('open');
+      btn.classList.toggle('active');
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        prevSlide();
+      } else if (e.key === 'n' || e.key === 'N') {
+        toggleNotes();
+      } else if (e.key === 'f' || e.key === 'F') {
+        toggleFullScreen();
+      } else if (e.key === 'Home') {
+        currentSlide = 1;
+        updateSlide();
+      } else if (e.key === 'End') {
+        currentSlide = totalSlides;
+        updateSlide();
+      }
+    });
+
+    // Initialize
+    updateSlide();
+  </script>
+</body>
+</html>
